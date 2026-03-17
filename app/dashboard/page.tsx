@@ -35,7 +35,7 @@ export default async function DashboardPage() {
     getUserInfo(userId),
   ]);
 
-  const isAdmin = currentUserInfo?.isAdmin ?? false;
+  const isAdmin = (currentUserInfo?.isAdmin ?? false) && (currentUserInfo?.isActive ?? false);
 
   let users: Awaited<ReturnType<typeof getAllUsers>> = [];
 

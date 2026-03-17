@@ -180,7 +180,7 @@ export function StationTimeline({ sessions, stations, userCarPlates, currentUser
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur">
         <h2 className="mb-6 text-xl font-semibold text-white flex items-center gap-2">
           <Clock className="h-5 w-5 text-zinc-400" />
-          Station Timeline
+          Station Occupation
         </h2>
         <div className="text-center py-12">
           <p className="text-zinc-400 text-lg">Loading timeline...</p>
@@ -195,7 +195,7 @@ export function StationTimeline({ sessions, stations, userCarPlates, currentUser
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur">
       <h2 className="mb-6 text-xl font-semibold text-white flex items-center gap-2">
         <Clock className="h-5 w-5 text-zinc-400" />
-        Station Timeline
+        Station Occupation
       </h2>
 
       <div className="relative">
@@ -291,12 +291,8 @@ export function StationTimeline({ sessions, stations, userCarPlates, currentUser
                         const isLatestCompleted = session.id === latestCompletedSessionId;
                         const carPlate = userCarPlates.get(session.userId);
                         
-                        // Show car plate badge: always for own session (active/future/latest completed), or for all sessions when admin
-                        const showCarPlate = carPlate && (
-                          isAdmin
-                            ? (isActive || isFuture || isLatestCompleted)
-                            : (isOwnSession && (isActive || isFuture || isLatestCompleted))
-                        );
+                        // Show car plate badge: on active/future always; on completed only for the latest one
+                        const showCarPlate = carPlate && (isActive || isFuture || isLatestCompleted) && (isAdmin || isOwnSession);
 
                         // Other users' sessions (non-admin): plain coloured block, no info, no click
                         if (!isOwnSession && !isAdmin) {
@@ -408,12 +404,8 @@ export function StationTimeline({ sessions, stations, userCarPlates, currentUser
             <span className="text-zinc-400">Scheduled</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-3 w-6 rounded bg-zinc-700/40 border border-zinc-600/30" />
+            <div className="h-3 w-6 rounded bg-zinc-600 border border-zinc-500" />
             <span className="text-zinc-400">Completed</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-6 rounded bg-zinc-700/50 border border-zinc-600/40 opacity-60" />
-            <span className="text-zinc-400">Reserved by others</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-0.5 w-6 bg-emerald-400" />

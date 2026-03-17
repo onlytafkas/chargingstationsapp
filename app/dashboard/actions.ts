@@ -41,6 +41,9 @@ export async function createSession(data: CreateSessionInput) {
   if (!userInfo) {
     return { error: "Your account is not registered in the system. Please contact an administrator to add your user information before making a reservation." };
   }
+  if (!userInfo.isActive) {
+    return { error: "Your account has been deactivated. Please contact an administrator to restore access." };
+  }
 
   // 4. Check that the session is not beyond the day after today
   const startTime = new Date(data.startTime);
@@ -156,7 +159,7 @@ export async function updateSession(data: UpdateSessionInput) {
   if (!existingSession) {
     return { error: "Session not found" };
   }
-  if (existingSession.userId !== userId && !callerInfo?.isAdmin) {
+  if (existingSession.userId !== userId && (!callerInfo?.isAdmin || !callerInfo?.isActive)) {
     return { error: "Forbidden" };
   }
 
@@ -252,7 +255,7 @@ export async function deleteSession(id: number) {
   if (!existingSession) {
     return { error: "Session not found" };
   }
-  if (existingSession.userId !== userId && !callerInfo?.isAdmin) {
+  if (existingSession.userId !== userId && (!callerInfo?.isAdmin || !callerInfo?.isActive)) {
     return { error: "Forbidden" };
   }
 
@@ -291,7 +294,7 @@ export async function createStationAction(data: CreateStationInput) {
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(userId);
-  if (!callerInfo?.isAdmin) {
+  if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -343,7 +346,7 @@ export async function updateStationAction(data: UpdateStationInput) {
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(userId);
-  if (!callerInfo?.isAdmin) {
+  if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -384,7 +387,7 @@ export async function deleteStationAction(id: number) {
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(userId);
-  if (!callerInfo?.isAdmin) {
+  if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -429,7 +432,7 @@ export async function createUserAction(data: CreateUserInput) {
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(userId);
-  if (!callerInfo?.isAdmin) {
+  if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -484,7 +487,7 @@ export async function updateUserAction(data: UpdateUserInput) {
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(userId);
-  if (!callerInfo?.isAdmin) {
+  if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -526,7 +529,7 @@ export async function deactivateUserAction(userId: string) {
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(authUserId);
-  if (!callerInfo?.isAdmin) {
+  if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -553,7 +556,7 @@ export async function activateUserAction(userId: string) {
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(authUserId);
-  if (!callerInfo?.isAdmin) {
+  if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
     return { error: "Forbidden: Admin access required" };
   }
 
