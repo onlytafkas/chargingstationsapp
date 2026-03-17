@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Zap, BarChart3, MapPin, Activity, Clock } from "lucide-react";
 import { getUserLoadingSessions } from "@/data/loading-sessions";
+import { getAllStations } from "@/data/stations";
 import { CreateSessionDialog } from "@/components/create-session-dialog";
 import { EditSessionDialog } from "@/components/edit-session-dialog";
 import { DeleteSessionDialog } from "@/components/delete-session-dialog";
@@ -15,7 +16,10 @@ export default async function DashboardPage() {
     redirect("/");
   }
 
-  const sessions = await getUserLoadingSessions(userId);
+  const [sessions, stations] = await Promise.all([
+    getUserLoadingSessions(userId),
+    getAllStations(),
+  ]);
   const now = new Date();
   const completedSessions = sessions.filter((s) => s.endTime && new Date(s.endTime) <= now);
   const activeSessions = sessions.filter((s) => new Date(s.startTime) <= now && (!s.endTime || new Date(s.endTime) > now));
@@ -34,7 +38,7 @@ export default async function DashboardPage() {
               Monitor and manage your charging stations
             </p>
           </div>
-          <CreateSessionDialog />
+          <CreateSessionDialog stations={stations} />
         </div>
 
         {/* Stats Grid */}
@@ -72,7 +76,7 @@ export default async function DashboardPage() {
               Unique Stations
             </div>
             <div className="text-3xl font-bold text-white">
-              {new Set(sessions.map((s) => s.stationId)).size}
+              {new Set(sessions.map((s) => s.station.name)).size}
             </div>
             <p className="mt-1 text-sm text-zinc-400">Different locations</p>
           </div>
@@ -95,7 +99,7 @@ export default async function DashboardPage() {
             </TabsList>
             
             <TabsContent value="timeline" className="mt-0">
-              <StationTimeline sessions={sessions} />
+              <StationTimeline sessions={sessions} stations={stations} />
             </TabsContent>
             
             <TabsContent value="sessions" className="mt-0">
@@ -125,7 +129,7 @@ export default async function DashboardPage() {
                             <Clock className="h-4 w-4 text-zinc-400" />
                           </div>
                           <div className="font-medium text-white">
-                            {session.stationId}
+                            {session.station.name}
                           </div>
                         </div>
                         <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-300">
@@ -174,7 +178,7 @@ export default async function DashboardPage() {
                             <Zap className="h-4 w-4 text-emerald-400" />
                           </div>
                           <div className="font-medium text-white">
-                            {session.stationId}
+                            {session.station.name}
                           </div>
                         </div>
                         <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
@@ -185,7 +189,7 @@ export default async function DashboardPage() {
                         Started: {new Date(session.startTime).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
                       </div>
                       <div className="ml-8 flex gap-2">
-                        <EditSessionDialog session={session} />
+                        <EditSessionDialog session={session} stations={stations} />
                       </div>
                     </div>
                     );
@@ -220,7 +224,7 @@ export default async function DashboardPage() {
                             <MapPin className="h-4 w-4 text-blue-400" />
                           </div>
                           <div className="font-medium text-white">
-                            {session.stationId}
+                            {session.station.name}
                           </div>
                         </div>
                         <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-400">
@@ -238,7 +242,7 @@ export default async function DashboardPage() {
                         )}
                       </div>
                       <div className="ml-8 flex gap-2">
-                        <EditSessionDialog session={session} disabled={isStartInPast} />
+                        <EditSessionDialog session={session} stations={stations} disabled={isStartInPast} />
                         <DeleteSessionDialog session={session} disabled={isStartInPast} />
                       </div>
                     </div>

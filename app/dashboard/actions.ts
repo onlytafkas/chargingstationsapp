@@ -6,13 +6,13 @@ import { createLoadingSession, updateLoadingSession, deleteLoadingSession } from
 import { revalidatePath } from "next/cache";
 
 const createSessionSchema = z.object({
-  stationId: z.string().min(1, "Station ID is required"),
+  stationId: z.number().int().positive("Station ID is required"),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
 });
 
 interface CreateSessionInput {
-  stationId: string;
+  stationId: number;
   startTime?: string;
   endTime?: string;
 }
@@ -55,14 +55,14 @@ export async function createSession(data: CreateSessionInput) {
 
 const updateSessionSchema = z.object({
   id: z.number(),
-  stationId: z.string().min(1, "Station ID is required"),
+  stationId: z.number().int().positive("Station ID is required"),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
 });
 
 interface UpdateSessionInput {
   id: number;
-  stationId: string;
+  stationId: number;
   startTime?: string;
   endTime?: string;
 }

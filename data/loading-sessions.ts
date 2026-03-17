@@ -3,18 +3,20 @@ import { loadingSessions } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export async function getUserLoadingSessions(userId: string) {
-  const sessions = await db
-    .select()
-    .from(loadingSessions)
-    .where(eq(loadingSessions.userId, userId))
-    .orderBy(desc(loadingSessions.startTime));
+  const sessions = await db.query.loadingSessions.findMany({
+    where: eq(loadingSessions.userId, userId),
+    with: {
+      station: true,
+    },
+    orderBy: [desc(loadingSessions.startTime)],
+  });
 
   return sessions;
 }
 
 interface CreateLoadingSessionInput {
   userId: string;
-  stationId: string;
+  stationId: number;
   startTime?: string;
   endTime?: string;
 }
@@ -22,7 +24,7 @@ interface CreateLoadingSessionInput {
 export async function createLoadingSession(data: CreateLoadingSessionInput) {
   const values: {
     userId: string;
-    stationId: string;
+    stationId: number;
     startTime: Date;
     endTime?: Date;
   } = {
@@ -45,14 +47,14 @@ export async function createLoadingSession(data: CreateLoadingSessionInput) {
 
 interface UpdateLoadingSessionInput {
   id: number;
-  stationId: string;
+  stationId: number;
   startTime?: string;
   endTime?: string;
 }
 
 export async function updateLoadingSession(data: UpdateLoadingSessionInput) {
   const values: {
-    stationId: string;
+    stationId: number;
     startTime?: Date;
     endTime?: Date | null;
   } = {

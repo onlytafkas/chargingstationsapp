@@ -16,8 +16,13 @@ import { deleteSession } from "@/app/dashboard/actions";
 interface DeleteSessionDialogProps {
   session: {
     id: number;
-    stationId: string;
+    stationId: number;
     startTime: Date;
+    station: {
+      id: number;
+      name: string;
+      description: string | null;
+    };
   };
   disabled?: boolean;
 }
@@ -66,7 +71,7 @@ export function DeleteSessionDialog({ session, disabled = false }: DeleteSession
         <div className="space-y-4">
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
             <div className="text-sm font-medium text-white">
-              Station: {session.stationId}
+              Station: {session.station.name}
             </div>
             <div className="text-sm text-zinc-400">
               Started: {new Date(session.startTime).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}

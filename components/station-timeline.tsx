@@ -4,19 +4,27 @@ import { Clock } from "lucide-react";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { EditSessionDialog } from "@/components/edit-session-dialog";
 
+type Station = {
+  id: number;
+  name: string;
+  description: string | null;
+};
+
 type Session = {
   id: number;
   userId: string;
-  stationId: string;
+  stationId: number;
   startTime: Date;
   endTime: Date | null;
+  station: Station;
 };
 
 type StationTimelineProps = {
   sessions: Session[];
+  stations: Station[];
 };
 
-export function StationTimeline({ sessions }: StationTimelineProps) {
+export function StationTimeline({ sessions, stations }: StationTimelineProps) {
   const [now, setNow] = useState<number | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -35,11 +43,11 @@ export function StationTimeline({ sessions }: StationTimelineProps) {
   }, []);
 
   const timelineData = useMemo(() => {
-    // Get unique stations
-    const stations = Array.from(new Set(sessions.map((s) => s.stationId))).sort();
+    // Get unique station names
+    const stationNames = Array.from(new Set(sessions.map((s) => s.station.name))).sort();
     
-    if (stations.length === 0 || sessions.length === 0 || now === null) {
-      return { stations: [], sessions: [], timeRange: { start: new Date(), end: new Date() }, duration: 0 };
+    if (stationNames.length === 0 || sessions.length === 0 || now === null) {
+      return { stationNames: [], sessions: [], timeRange: { start: new Date(), end: new Date() }, duration: 0 };
     }
 
     // Show 3 days total (yesterday, today, tomorrow) but fit 12 hours on screen width
@@ -49,14 +57,14 @@ export function StationTimeline({ sessions }: StationTimelineProps) {
     const duration = timeEnd.getTime() - timeStart.getTime();
 
     return {
-      stations,
+      stationNames,
       sessions,
       timeRange: { start: timeStart, end: timeEnd },
       duration,
     };
   }, [sessions, now]);
 
-  const { stations, timeRange, duration } = timelineData;
+  const { stationNames, timeRange, duration } = timelineData;
 
   // Scroll to center current time
   useEffect(() => {
@@ -161,10 +169,10 @@ export function StationTimeline({ sessions }: StationTimelineProps) {
             <div className="h-8 mb-4" />
             {/* Station names */}
             <div className="space-y-4">
-              {stations.map((stationId) => (
-                <div key={stationId} className="h-12 flex items-center pt-3">
+              {stationNames.map((stationName) => (
+                <div key={stationName} className="h-12 flex items-center pt-3">
                   <div className="truncate text-sm font-medium text-white">
-                    {stationId}
+                    {stationName}
                   </div>
                 </div>
               ))}
@@ -189,13 +197,13 @@ export function StationTimeline({ sessions }: StationTimelineProps) {
 
               {/* Timeline rows */}
               <div className="space-y-4">
-                {stations.map((stationId) => {
+                {stationNames.map((stationName) => {
                   const stationSessions = sessions.filter(
-                    (s) => s.stationId === stationId
+                    (s) => s.station.name === stationName
                   );
 
                   return (
-                    <div key={stationId} className="relative h-12 rounded-lg border border-zinc-800 bg-zinc-900/30">
+                    <div key={stationName} className="relative h-12 rounded-lg border border-zinc-800 bg-zinc-900/30">
                       {/* Current time indicator */}
                       {currentPosition >= 0 && currentPosition <= 100 && (
                         <div
@@ -239,7 +247,7 @@ export function StationTimeline({ sessions }: StationTimelineProps) {
                               left: `${startPos}%`,
                               width: `${width}%`,
                             }}
-                            title={`${session.stationId}: ${session.startTime.toLocaleString(undefined, {
+                            title={`${session.station.name}: ${session.startTime.toLocaleString(undefined, {
                               year: 'numeric',
                               month: 'short',
                               day: 'numeric',
@@ -263,7 +271,7 @@ export function StationTimeline({ sessions }: StationTimelineProps) {
                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-30">
                               <div className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs shadow-lg whitespace-nowrap">
                                 <div className="font-medium text-white mb-1">
-                                  {session.stationId}
+                                  {session.station.name}
                                 </div>
                                 <div className="text-zinc-400">
                                   Start: {session.startTime.toLocaleString(undefined, {
@@ -326,7 +334,8 @@ export function StationTimeline({ sessions }: StationTimelineProps) {
       {/* Edit Session Dialog */}
       {selectedSession && (
         <EditSessionDialog 
-          session={selectedSession} 
+          session={selectedSession}
+          stations={stations}
           open={!!selectedSession}
           onOpenChange={(open) => {
             if (!open) setSelectedSession(null);

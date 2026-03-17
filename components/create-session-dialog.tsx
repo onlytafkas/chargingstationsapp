@@ -10,15 +10,31 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { createSession } from "@/app/dashboard/actions";
 
-export function CreateSessionDialog() {
+type Station = {
+  id: number;
+  name: string;
+  description: string | null;
+};
+
+type CreateSessionDialogProps = {
+  stations: Station[];
+};
+
+export function CreateSessionDialog({ stations }: CreateSessionDialogProps) {
   const [open, setOpen] = useState(false);
-  const [stationId, setStationId] = useState("");
+  const [stationId, setStationId] = useState<number | null>(null);
   const [startDate, setStartDate] = useState<Date | undefined>(new Date());
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [loading, setLoading] = useState(false);
@@ -70,6 +86,12 @@ export function CreateSessionDialog() {
       return;
     }
 
+    if (!stationId) {
+      setServerError("Please select a station");
+      setLoading(false);
+      return;
+    }
+
     // If there's already a validation error, don't submit
     if (validationError) {
       setLoading(false);
@@ -88,7 +110,7 @@ export function CreateSessionDialog() {
     } else {
       // Success - close dialog and reset form
       setOpen(false);
-      setStationId("");
+      setStationId(null);
       setStartDate(new Date());
       setEndDate(undefined);
       setLoading(false);
@@ -117,20 +139,28 @@ export function CreateSessionDialog() {
         <DialogHeader>
           <DialogTitle>Reserve Charging Session</DialogTitle>
           <DialogDescription>
-            Enter the station ID to reserve a new charging session.
+            Select a station to reserve a new charging session.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="stationId">Station ID</Label>
-            <Input
-              id="stationId"
-              placeholder="e.g., STATION-001"
-              value={stationId}
-              onChange={(e) => setStationId(e.target.value)}
-              required
+            <Label htmlFor="stationId">Station</Label>
+            <Select
+              value={stationId?.toString() ?? ""}
+              onValueChange={(value) => setStationId(Number(value))}
               disabled={loading}
-            />
+            >
+              <SelectTrigger id="stationId">
+                <SelectValue placeholder="Select a station" />
+              </SelectTrigger>
+              <SelectContent>
+                {stations.map((station) => (
+                  <SelectItem key={station.id} value={station.id.toString()}>
+                    {station.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Start Time</Label>

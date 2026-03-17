@@ -10,19 +10,33 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { updateSession } from "@/app/dashboard/actions";
 
+type Station = {
+  id: number;
+  name: string;
+  description: string | null;
+};
+
 interface EditSessionDialogProps {
   session: {
     id: number;
-    stationId: string;
+    stationId: number;
     startTime: Date;
     endTime: Date | null;
+    station: Station;
   };
+  stations: Station[];
   disabled?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -30,7 +44,8 @@ interface EditSessionDialogProps {
 }
 
 export function EditSessionDialog({ 
-  session, 
+  session,
+  stations,
   disabled = false,
   open: externalOpen,
   onOpenChange: externalOnOpenChange,
@@ -148,21 +163,28 @@ export function EditSessionDialog({
         <DialogHeader>
           <DialogTitle>Edit Charging Session</DialogTitle>
           <DialogDescription>
-            Update the end time of your charging session.
+            Update the details of your charging session.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="edit-stationId">Station ID</Label>
-            <Input
-              id="edit-stationId"
-              placeholder="e.g., STATION-001"
-              value={stationId}
-              onChange={(e) => setStationId(e.target.value)}
-              required
+            <Label htmlFor="edit-stationId">Station</Label>
+            <Select
+              value={stationId.toString()}
+              onValueChange={(value) => setStationId(Number(value))}
               disabled={true}
-              className="cursor-not-allowed opacity-60"
-            />
+            >
+              <SelectTrigger id="edit-stationId" className="cursor-not-allowed opacity-60">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {stations.map((station) => (
+                  <SelectItem key={station.id} value={station.id.toString()}>
+                    {station.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Start Time</Label>
