@@ -1,3 +1,6 @@
+---
+description: This file describes the authentication rules and patterns for the project.
+---
 # Authentication
 
 ## Overview

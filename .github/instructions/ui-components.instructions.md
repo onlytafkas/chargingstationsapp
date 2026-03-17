@@ -1,3 +1,7 @@
+---
+description: This file describes the UI component usage, styling guidelines, and critical font configuration for the project.
+---
+
 # UI Components & Styling
 
 ## Overview
