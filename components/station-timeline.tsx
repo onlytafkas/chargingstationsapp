@@ -2,6 +2,7 @@
 
 import { Clock } from "lucide-react";
 import { useMemo, useState, useEffect, useRef } from "react";
+import { EditSessionDialog } from "@/components/edit-session-dialog";
 
 type Session = {
   id: number;
@@ -18,6 +19,7 @@ type StationTimelineProps = {
 export function StationTimeline({ sessions }: StationTimelineProps) {
   const [now, setNow] = useState<number | null>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Initialize client-side time after mount to avoid hydration mismatch
@@ -211,11 +213,22 @@ export function StationTimeline({ sessions }: StationTimelineProps) {
                           session.startTime.getTime() <= now &&
                           (!session.endTime || session.endTime.getTime() > now);
                         const isFuture = session.startTime.getTime() > now;
+                        const isStartInPast = new Date(session.startTime) < new Date();
+
+                        const handleClick = () => {
+                          // Only allow editing if session start is not in the past
+                          if (!isStartInPast) {
+                            setSelectedSession(session);
+                          }
+                        };
 
                         return (
                           <div
                             key={session.id}
-                            className={`absolute top-1 bottom-1 rounded transition-all hover:z-20 hover:scale-105 group cursor-pointer ${
+                            onClick={handleClick}
+                            className={`absolute top-1 bottom-1 rounded transition-all hover:z-20 hover:scale-105 group ${
+                              isStartInPast ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                            } ${
                               isActive
                                 ? "bg-emerald-500/80 border border-emerald-400/50"
                                 : isFuture
@@ -309,6 +322,18 @@ export function StationTimeline({ sessions }: StationTimelineProps) {
           </div>
         </div>
       </div>
+
+      {/* Edit Session Dialog */}
+      {selectedSession && (
+        <EditSessionDialog 
+          session={selectedSession} 
+          open={!!selectedSession}
+          onOpenChange={(open) => {
+            if (!open) setSelectedSession(null);
+          }}
+          trigger={false}
+        />
+      )}
     </div>
   );
 }

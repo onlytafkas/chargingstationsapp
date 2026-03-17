@@ -166,7 +166,7 @@ export function CreateSessionDialog() {
               className="bg-emerald-600 hover:bg-emerald-500"
               disabled={loading || error !== null}
             >
-              {loading ? "Starting..." : "Start Session"}
+              {loading ? "Reserving..." : "Reserve Session"}
             </Button>
           </div>
         </form>

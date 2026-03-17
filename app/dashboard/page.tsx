@@ -6,6 +6,7 @@ import { CreateSessionDialog } from "@/components/create-session-dialog";
 import { EditSessionDialog } from "@/components/edit-session-dialog";
 import { DeleteSessionDialog } from "@/components/delete-session-dialog";
 import { StationTimeline } from "@/components/station-timeline";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -77,14 +78,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Station Timeline Visualization */}
-        {sessions.length > 0 && (
-          <div className="mb-12">
-            <StationTimeline sessions={sessions} />
-          </div>
-        )}
-
-        {/* Main Content Area */}
+        {/* Tabs for Timeline and Sessions */}
         {sessions.length === 0 ? (
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-8 backdrop-blur">
             <div className="text-center py-12">
@@ -94,7 +88,18 @@ export default async function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-3">
+          <Tabs defaultValue="timeline" className="w-full">
+            <TabsList className="mb-8">
+              <TabsTrigger value="timeline">Timeline</TabsTrigger>
+              <TabsTrigger value="sessions">Sessions</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="timeline" className="mt-0">
+              <StationTimeline sessions={sessions} />
+            </TabsContent>
+            
+            <TabsContent value="sessions" className="mt-0">
+              <div className="grid gap-6 lg:grid-cols-3">
             {/* Completed Sessions Card */}
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur">
               <h2 className="mb-4 text-xl font-semibold text-white flex items-center gap-2">
@@ -243,6 +248,8 @@ export default async function DashboardPage() {
               )}
             </div>
           </div>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </div>

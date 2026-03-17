@@ -24,13 +24,26 @@ interface EditSessionDialogProps {
     endTime: Date | null;
   };
   disabled?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: boolean; // If true, show the trigger button; if false, controlled externally
 }
 
-export function EditSessionDialog({ session, disabled = false }: EditSessionDialogProps) {
-  const [open, setOpen] = useState(false);
+export function EditSessionDialog({ 
+  session, 
+  disabled = false,
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
+  trigger = true
+}: EditSessionDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  // Use external control if provided, otherwise use internal state
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = externalOnOpenChange || setInternalOpen;
 
   const [stationId, setStationId] = useState(session.stationId);
   const [startDate, setStartDate] = useState<Date | undefined>(new Date(session.startTime));
@@ -118,17 +131,19 @@ export function EditSessionDialog({ session, disabled = false }: EditSessionDial
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 border-zinc-700 hover:bg-zinc-800 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={disabled}
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          Edit
-        </Button>
-      </DialogTrigger>
+      {trigger && (
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-zinc-700 hover:bg-zinc-800 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={disabled}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Charging Session</DialogTitle>
