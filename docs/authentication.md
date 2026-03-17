@@ -25,11 +25,16 @@ All authentication in this application is handled exclusively by **Clerk**. No o
 - Do not redirect to separate pages for authentication
 - Use Clerk's modal configuration options
 
+### 5. Post-Authentication Redirect
+- After successful sign-in or sign-up, users are redirected to `/dashboard`
+- Configure this in `ClerkProvider` using `signInFallbackRedirectUrl` and `signUpFallbackRedirectUrl` props
+
 ## Implementation Guidelines
 
 When working with authentication:
 - Use `@clerk/nextjs` components and hooks
-- Leverage `auth()` for server-side auth checks
+- Leverage `auth()` for server-side auth checks in Server Components
 - Use `useAuth()` or `useUser()` for client-side auth state
-- Configure Clerk middleware in `middleware.ts` for route protection
+- Implement page-level protection using `auth()` and redirects (do not use middleware.ts)
+- Configure `ClerkProvider` with `signInFallbackRedirectUrl="/dashboard"` and `signUpFallbackRedirectUrl="/dashboard"` in the root layout
 - Set up proper redirect URLs in Clerk dashboard settings
