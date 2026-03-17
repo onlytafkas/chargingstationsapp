@@ -36,10 +36,19 @@ export function CreateSessionDialog({ stations }: CreateSessionDialogProps) {
   const [open, setOpen] = useState(false);
   const [stationId, setStationId] = useState<number | null>(null);
   const [startDate, setStartDate] = useState<Date | undefined>(new Date());
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [duration, setDuration] = useState<string>("60"); // Default to 1 hour (in minutes)
   const [loading, setLoading] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Calculate end date based on start date and duration
+  const endDate = useMemo(() => {
+    if (!startDate || !duration) return undefined;
+    const end = new Date(startDate.getTime());
+    end.setMinutes(end.getMinutes() + parseInt(duration));
+    return end;
+  }, [startDate, duration]);
 
   // Real-time validation (only after user interaction)
   const validationError = useMemo(() => {
@@ -51,13 +60,16 @@ export function CreateSessionDialog({ stations }: CreateSessionDialogProps) {
       return "Start date cannot be in the past";
     }
     
-    if (endDate) {
-      if (endDate < now) {
-        return "End date cannot be in the past";
-      }
-      if (startDate && endDate <= startDate) {
-        return "End date must be after start date";
-      }
+    if (!endDate) {
+      return "End time is required";
+    }
+    
+    if (endDate < now) {
+      return "End date cannot be in the past";
+    }
+    
+    if (startDate && endDate <= startDate) {
+      return "End date must be after start date";
     }
     
     return null;
@@ -70,8 +82,8 @@ export function CreateSessionDialog({ stations }: CreateSessionDialogProps) {
     setHasUserInteracted(true);
   };
 
-  const handleEndDateChange = (date: Date | undefined) => {
-    setEndDate(date);
+  const handleDurationChange = (value: string) => {
+    setDuration(value);
     setHasUserInteracted(true);
   };
 
@@ -82,6 +94,12 @@ export function CreateSessionDialog({ stations }: CreateSessionDialogProps) {
 
     if (!startDate) {
       setServerError("Please select a start date and time");
+      setLoading(false);
+      return;
+    }
+
+    if (!endDate) {
+      setServerError("Please select a duration");
       setLoading(false);
       return;
     }
@@ -101,20 +119,36 @@ export function CreateSessionDialog({ stations }: CreateSessionDialogProps) {
     const result = await createSession({ 
       stationId,
       startTime: startDate.toISOString(),
-      endTime: endDate?.toISOString(),
+      endTime: endDate.toISOString(),
     });
 
     if (result.error) {
       setServerError(result.error);
       setLoading(false);
     } else {
-      // Success - close dialog and reset form
-      setOpen(false);
-      setStationId(null);
-      setStartDate(new Date());
-      setEndDate(undefined);
-      setLoading(false);
-      setHasUserInteracted(false);
+      // Show success message if time was adjusted
+      if (result.message) {
+        setSuccessMessage(result.message);
+        setServerError(null);
+        // Keep dialog open briefly to show message, then close
+        setTimeout(() => {
+          setOpen(false);
+          setStationId(null);
+          setStartDate(new Date());
+          setDuration("60");
+          setLoading(false);
+          setHasUserInteracted(false);
+          setSuccessMessage(null);
+        }, 2500);
+      } else {
+        // No adjustment - close immediately
+        setOpen(false);
+        setStationId(null);
+        setStartDate(new Date());
+        setDuration("60");
+        setLoading(false);
+        setHasUserInteracted(false);
+      }
     }
   };
 
@@ -123,6 +157,7 @@ export function CreateSessionDialog({ stations }: CreateSessionDialogProps) {
     if (!newOpen) {
       // Reset on close
       setServerError(null);
+      setSuccessMessage(null);
       setHasUserInteracted(false);
     }
   };
@@ -171,16 +206,37 @@ export function CreateSessionDialog({ stations }: CreateSessionDialogProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label>End Time (optional)</Label>
+            <Label htmlFor="duration">Duration</Label>
+            <Select
+              value={duration}
+              onValueChange={handleDurationChange}
+              disabled={loading}
+            >
+              <SelectTrigger id="duration">
+                <SelectValue placeholder="Select duration" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="30">30 minutes</SelectItem>
+                <SelectItem value="60">1 hour</SelectItem>
+                <SelectItem value="120">2 hours</SelectItem>
+                <SelectItem value="180">3 hours</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>End Time</Label>
             <DateTimePicker
               date={endDate}
-              setDate={handleEndDateChange}
-              disabled={loading}
+              setDate={() => {}} // Read-only, calculated from start date + duration
+              disabled={true}
             />
-            <p className="text-xs text-zinc-500">Leave empty for active session</p>
+            <p className="text-xs text-zinc-500">Calculated from start time + duration</p>
           </div>
           {error && (
             <p className="text-sm text-red-400">{error}</p>
+          )}
+          {successMessage && (
+            <p className="text-sm text-emerald-400">{successMessage}</p>
           )}
           <div className="flex justify-end gap-2">
             <Button

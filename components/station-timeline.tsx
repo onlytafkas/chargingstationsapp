@@ -37,7 +37,7 @@ export function StationTimeline({ sessions, stations }: StationTimelineProps) {
     
     const interval = setInterval(() => {
       setNow(Date.now());
-    }, 60000); // Update every minute
+    }, 10000); // Update every 10 seconds for more responsive state changes
 
     return () => clearInterval(interval);
   }, []);
@@ -169,13 +169,19 @@ export function StationTimeline({ sessions, stations }: StationTimelineProps) {
             <div className="h-8 mb-4" />
             {/* Station names */}
             <div className="space-y-4">
-              {stationNames.map((stationName) => (
-                <div key={stationName} className="h-12 flex items-center pt-3">
-                  <div className="truncate text-sm font-medium text-white">
-                    {stationName}
+              {stationNames.map((stationName) => {
+                const station = stations.find((s) => s.name === stationName);
+                return (
+                  <div key={stationName} className="h-12 flex items-center pt-3">
+                    <div 
+                      className="truncate text-sm font-medium text-white cursor-help"
+                      title={station?.description || stationName}
+                    >
+                      {stationName}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

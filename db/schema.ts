@@ -8,8 +8,8 @@ export const stations = pgTable('stations', {
   description: text('description'),
 });
 
-// Loading sessions table
-export const loadingSessions = pgTable('loading_sessions', {
+// Sessions table
+export const sessions = pgTable('sessions', {
   id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   userId: text('user_id').notNull(),
   stationId: integer('station_id')
@@ -21,12 +21,12 @@ export const loadingSessions = pgTable('loading_sessions', {
 
 // Relations
 export const stationsRelations = relations(stations, ({ many }) => ({
-  loadingSessions: many(loadingSessions),
+  sessions: many(sessions),
 }));
 
-export const loadingSessionsRelations = relations(loadingSessions, ({ one }) => ({
+export const sessionsRelations = relations(sessions, ({ one }) => ({
   station: one(stations, {
-    fields: [loadingSessions.stationId],
+    fields: [sessions.stationId],
     references: [stations.id],
   }),
 }));

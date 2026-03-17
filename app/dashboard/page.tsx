@@ -1,13 +1,21 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { Zap, BarChart3, MapPin, Activity, Clock } from "lucide-react";
+import { Zap, BarChart3, MapPin, Activity, Clock, Building2 } from "lucide-react";
 import { getUserLoadingSessions } from "@/data/loading-sessions";
 import { getAllStations } from "@/data/stations";
 import { CreateSessionDialog } from "@/components/create-session-dialog";
 import { EditSessionDialog } from "@/components/edit-session-dialog";
 import { DeleteSessionDialog } from "@/components/delete-session-dialog";
+import { CreateStationDialog } from "@/components/create-station-dialog";
+import { EditStationDialog } from "@/components/edit-station-dialog";
+import { DeleteStationDialog } from "@/components/delete-station-dialog";
 import { StationTimeline } from "@/components/station-timeline";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AutoRefresh } from "@/components/auto-refresh";
+
+// Force dynamic rendering and refresh data every minute
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -27,6 +35,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-zinc-950 font-sans">
+      {/* Auto-refresh component to reload data every minute */}
+      <AutoRefresh intervalMs={60000} />
+      
       <div className="mx-auto max-w-7xl px-6 py-12">
         {/* Header */}
         <div className="mb-12 flex items-start justify-between">
@@ -96,6 +107,7 @@ export default async function DashboardPage() {
             <TabsList className="mb-8">
               <TabsTrigger value="timeline">Timeline</TabsTrigger>
               <TabsTrigger value="sessions">Sessions</TabsTrigger>
+              <TabsTrigger value="stations">Stations</TabsTrigger>
             </TabsList>
             
             <TabsContent value="timeline" className="mt-0">
@@ -252,6 +264,64 @@ export default async function DashboardPage() {
               )}
             </div>
           </div>
+            </TabsContent>
+
+            <TabsContent value="stations" className="mt-0">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur">
+                <div className="mb-6 flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-zinc-400" />
+                    Manage Stations
+                  </h2>
+                  <CreateStationDialog />
+                </div>
+                
+                {stations.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-zinc-400 text-lg">
+                      No stations available. Click &ldquo;Add Station&rdquo; to create your first charging station.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {stations.map((station) => {
+                      const stationSessions = sessions.filter((s) => s.stationId === station.id);
+                      const hasSessions = stationSessions.length > 0;
+                      
+                      return (
+                        <div
+                          key={station.id}
+                          className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 transition-colors hover:border-zinc-700"
+                        >
+                          <div className="mb-3">
+                            <div className="font-medium text-white mb-1">
+                              {station.name}
+                            </div>
+                            {station.description && (
+                              <div className="text-sm text-zinc-400">
+                                {station.description}
+                              </div>
+                            )}
+                          </div>
+                          <div className="mb-3 text-xs text-zinc-500">
+                            {hasSessions ? (
+                              <span className="text-emerald-400">
+                                {stationSessions.length} reservation{stationSessions.length !== 1 ? 's' : ''}
+                              </span>
+                            ) : (
+                              <span>No reservations</span>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <EditStationDialog station={station} />
+                            <DeleteStationDialog station={station} disabled={hasSessions} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         )}
