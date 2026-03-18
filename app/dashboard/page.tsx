@@ -150,16 +150,14 @@ export default async function DashboardPage() {
       {/* Auto-refresh component to reload data every minute */}
       <AutoRefresh intervalMs={60000} />
       
-      <div className="mx-auto max-w-7xl px-6 py-12">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-12">
         {/* Header */}
-        <div className="mb-12 flex items-start justify-between">
+        <div className="mb-2 flex items-start justify-between">
           <div>
-            <h1 className="mb-2 text-4xl font-bold tracking-tight text-white">
-              Dashboard
+            <h1 className="mb-2 text-xl text-foreground">
+              <span className="font-semibold">Dashboard</span>
+              <span className="font-normal"> for {currentUserEmail}</span>
             </h1>
-            <p className="text-lg text-zinc-400">
-              Monitor and manage charging - {currentUserEmail}
-            </p>
           </div>
         </div>
 
@@ -224,7 +222,7 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <Tabs defaultValue="timeline" className="w-full">
-            <div className="mb-8 flex items-center justify-between">
+            <div className="mb-1 flex items-center justify-between">
               <TabsList>
                 <TabsTrigger value="timeline">Timeline</TabsTrigger>
                 <TabsTrigger value="sessions">Sessions</TabsTrigger>

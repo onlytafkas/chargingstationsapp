@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { dark } from "@clerk/ui/themes";
 import { Header } from "@/components/header";
 import "./globals.css";
 
@@ -32,6 +33,7 @@ export default function RootLayout({
         <ClerkProvider
           signInFallbackRedirectUrl="/dashboard"
           signUpFallbackRedirectUrl="/dashboard"
+          appearance={{ theme: dark }}
         >
           <Header />
           {children}

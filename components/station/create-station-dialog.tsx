@@ -53,7 +53,7 @@ export function CreateStationDialog() {
           Add Station
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-125">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Add New Station</DialogTitle>

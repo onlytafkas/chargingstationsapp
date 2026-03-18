@@ -147,9 +147,9 @@ export function AuditLogTable({ logs, userEmails }: AuditLogTableProps) {
       <div
         ref={scrollContainerRef}
         onScroll={updateScrollButtons}
-        className="overflow-x-hidden rounded-lg [&_[data-slot='table-container']]:overflow-x-visible"
+        className="overflow-x-hidden rounded-lg"
       >
-        <Table className="table-fixed">
+        <Table className="table-fixed" containerClassName="overflow-x-visible">
           <colgroup>
             {colWidths.map((w, i) => (
               <col key={i} style={{ width: `${w}px` }} />
