@@ -9,14 +9,15 @@ applyTo: "**"
 
 **MANDATORY — read and apply these rules for every code change, no exceptions.**
 
-- Every new piece of business logic MUST have tests written before or alongside the implementation.
+- Every new piece of business logic MUST have **both unit tests and integration tests** written before or alongside the implementation.
 - Tests must be **meaningful**: each test asserts real behaviour and covers a distinct scenario. Never write tests that exist only to inflate coverage numbers.
 - Tests are not optional and must pass before any change is considered complete.
 
 After **every** code change (no exceptions):
-1. Run the full test suite to confirm no regressions — `npm run test`
-2. Run coverage to confirm thresholds are maintained — `npm run test:coverage`
-3. If coverage drops below 80% on any business-logic file, add meaningful tests to restore it before finishing.
+1. Run the full unit test suite to confirm no regressions — `npm run test`
+2. Run the integration test suite — `npm run test:integration`
+3. Run coverage to confirm thresholds are maintained — `npm run test:coverage`
+4. If coverage drops below 80% on any business-logic file, add meaningful tests to restore it before finishing.
 
 ---
 
@@ -46,9 +47,10 @@ The project targets **80% minimum on all four metrics** (Statements, Branches, F
 ### Commands
 
 ```bash
-npm run test              # Run all tests once (CI mode)
+npm run test              # Run all unit tests once (CI mode)
 npm run test:watch        # Watch mode during development
-npm run test:coverage     # Run all tests + generate coverage report
+npm run test:integration  # Run integration tests against pg-mem
+npm run test:coverage     # Run all unit tests + generate coverage report
 npm run test:ui           # Open the Vitest browser UI
 ```
 
@@ -56,19 +58,28 @@ npm run test:ui           # Open the Vitest browser UI
 
 ## File & Directory Structure
 
-Mirror the source tree under `__tests__/`:
+Mirror the source tree under `__tests__/` for unit tests and under `__tests__/integration/` for integration tests:
 
 ```
 __tests__/
-  components/            ← tests for components/
-  dashboard/             ← tests for app/dashboard/
-  data/                  ← tests for data/
+  components/            ← unit tests for components/
+  dashboard/             ← unit tests for app/dashboard/
+  data/                  ← unit tests for data/
   helpers/               ← shared test helper utilities
   mocks/                 ← shared vi.mock factory modules
+  integration/
+    data/                ← integration tests for data/
+    actions/             ← integration tests for app/dashboard/actions.ts
+    flows/               ← cross-entity integration flows
+    helpers/
+      test-db.ts         ← shared pg-mem instance + backup/restore helpers
 ```
 
-**Naming**: test file name = source file name + `.test.ts` / `.test.tsx`.  
-Example: `data/loading-sessions.ts` → `__tests__/data/loading-sessions.test.ts`
+**Naming**:
+- Unit tests: source file name + `.test.ts` / `.test.tsx`  
+  Example: `data/loading-sessions.ts` → `__tests__/data/loading-sessions.test.ts`
+- Integration tests: source file name + `.integration.test.ts`  
+  Example: `data/loading-sessions.ts` → `__tests__/integration/data/loading-sessions.integration.test.ts`
 
 ---
 
@@ -152,10 +163,29 @@ vi.mock("@/db", () => ({ db: mockDb }));
 
 ### Data functions (`data/*.ts`)
 
-Test every exported function. For each function write tests covering:
+Every exported function needs **both** a unit test and an integration test.
+
+**Unit test** (mocked DB — `__tests__/data/`):
 - **Happy path**: correct input → expected return value
 - **Not found**: query returns empty array → function returns `null` or `[]`
 - **Edge cases**: `null`/`undefined` optional fields, empty string treated as `null`
+
+**Integration test** (real pg-mem DB — `__tests__/integration/data/`):
+- **Real SQL correctness**: the generated SQL runs without error
+- **Constraints**: UNIQUE, FK, and NOT NULL constraints behave as expected
+- **Ordering / filtering**: ORDER BY, WHERE clauses return the right rows
+- **Relationships**: any join or relation loading works end-to-end
+
+```typescript
+// Integration test pattern for data functions
+vi.mock("@/db", async () => await import("@/__tests__/integration/helpers/test-db"));
+import { mem, emptyBackup } from "@/__tests__/integration/helpers/test-db";
+
+let backup: ReturnType<typeof mem.backup>;
+beforeAll(() => { emptyBackup.restore(); backup = mem.backup(); });
+afterAll(() => { emptyBackup.restore(); });
+beforeEach(() => { backup.restore(); });
+```
 
 ```typescript
 describe("getStationById", () => {
@@ -173,7 +203,9 @@ describe("getStationById", () => {
 
 ### Server actions (`app/dashboard/actions.ts`)
 
-Every server action must test:
+Every server action needs **both** a unit test and an integration test.
+
+**Unit test** (mocked DB + mocked data layer — `__tests__/dashboard/`):
 1. **Unauthenticated** — `userId` is null → returns `{ error: "Unauthorized" }`
 2. **Non-admin / insufficient permission** — returns appropriate error
 3. **Validation error** — invalid input → returns `{ error: "..." }`
@@ -181,21 +213,19 @@ Every server action must test:
 5. **Success** — valid input + correct role → returns `{ success: true, data: ... }`
 6. **DB error path** — data layer throws → returns `{ error: "Failed to ..." }`
 
-```typescript
-describe("createStationAction", () => {
-  it("returns Unauthorized when user is not logged in", async () => {
-    mockAuthUserId.value = null;
-    expect(await createStationAction({ name: "A", location: "B" }))
-      .toEqual({ error: "Unauthorized" });
-  });
+**Integration test** (real pg-mem DB, only Clerk/next mocked — `__tests__/integration/actions/`):
+1. **Auth guard** — unauthenticated returns correct error
+2. **Permission guard** — non-admin forbidden
+3. **Success + DB persist** — row actually exists in the DB after the action
+4. **Audit log written** — correct audit entry in `audit_logs` table
+5. **Constraint / business rule** — duplicate names, cooldown, overlap, etc.
 
-  it("returns error when DB throws", async () => {
-    mockGetUserInfo.mockResolvedValue(adminUser());
-    mockCreateStation.mockRejectedValue(new Error("db error"));
-    expect(await createStationAction({ name: "A", location: "B" }))
-      .toEqual({ error: "Failed to create station" });
-  });
-});
+```typescript
+// Integration action test: only mock auth and Next.js infra
+vi.mock("@/db", async () => await import("@/__tests__/integration/helpers/test-db"));
+vi.mock("@clerk/nextjs/server", () => ({ auth: vi.fn(async () => ({ userId: mockUserId.value })) }));
+vi.mock("next/headers", () => ({ headers: vi.fn(async () => ({ get: vi.fn(() => null) })) }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 ```
 
 ### React components (`components/*.tsx`)
@@ -245,16 +275,36 @@ beforeEach(() => {
 
 ---
 
+## Integration Test Infrastructure
+
+The project uses **pg-mem** (in-memory PostgreSQL) for integration tests. Key facts:
+
+- Config: `vitest.integration.config.ts` (separate from the unit test config)
+- Shared DB helper: `__tests__/integration/helpers/test-db.ts`
+  - Exports `db` (Drizzle instance), `mem` (pg-mem instance), `emptyBackup` (clean-schema snapshot)
+  - Mock `@/db` with `vi.mock("@/db", async () => await import("@/__tests__/integration/helpers/test-db"))` at the top of every integration test file
+- **Isolation pattern** — every integration test file must use:
+  ```typescript
+  let backup: ReturnType<typeof mem.backup>;
+  beforeAll(() => { emptyBackup.restore(); /* seed */; backup = mem.backup(); });
+  afterAll(() => { emptyBackup.restore(); });
+  beforeEach(() => { backup.restore(); });
+  ```
+- **Known pg-mem limitation**: `LEFT JOIN LATERAL` (used by drizzle's `with:` relation loading) is not supported. Skip those tests with `it.skip` and a comment, and rely on unit tests for relation-loading coverage.
+- **Timezone**: pg-mem returns timestamps as UTC strings. Use `getUTCHours()` / `getUTCMinutes()` in assertions, never `getHours()` / `getMinutes()`.
+
+---
+
 ## Checklist — Required Before Finishing Any Change
 
 Run through this checklist for **every** code change — not only new features:
 
 - [ ] Identified every new or modified code path (branches, conditionals, error paths)
-- [ ] Wrote a **meaningful** test for each identified path — happy path, error path, edge cases
-- [ ] Wrote tests for every new exported data function in `data/`
-- [ ] Wrote tests for every new server action in `actions.ts`
-- [ ] Wrote tests for every new business component in `components/`
-- [ ] Ran `npm run test` — all tests pass (0 failures)
+- [ ] Wrote a **meaningful unit test** for each identified path — happy path, error path, edge cases
+- [ ] Wrote a **meaningful integration test** for each new data function and server action
+- [ ] Wrote unit tests for every new business component in `components/`
+- [ ] Ran `npm run test` — all unit tests pass (0 failures)
+- [ ] Ran `npm run test:integration` — all integration tests pass (0 failures)
 - [ ] Ran `npm run test:coverage` — all business logic files remain at ≥ 80% Stmts / Branch / Funcs / Lines
 - [ ] Coverage did not drop compared to before the change; if it did, added tests to restore or exceed the previous level
 - [ ] No existing tests were broken by the change
