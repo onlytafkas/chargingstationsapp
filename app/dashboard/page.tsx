@@ -123,6 +123,7 @@ export default async function DashboardPage() {
   const allTodaySessions = allSessions.filter((s) => new Date(s.startTime) >= todayStart && new Date(s.startTime) < todayEnd);
   const allActiveSessions = allSessions.filter((s) => new Date(s.startTime) <= now && (!s.endTime || new Date(s.endTime) > now));
   const allCompletedSessions = allSessions.filter((s) => s.endTime && new Date(s.endTime) <= now && new Date(s.endTime) >= todayStart);
+  const allPlannedSessions = allSessions.filter((s) => new Date(s.startTime) > now);
   const allUniqueStations = new Set(allSessions.map((s) => s.station.name)).size;
   
   // Collect stationIds that currently have an active session (across all users)
@@ -163,9 +164,9 @@ export default async function DashboardPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="mb-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur">
-            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-400">
+        <div className="mb-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur text-center">
+            <div className="mb-2 flex items-center justify-center gap-2 text-sm font-medium text-zinc-400">
               <Zap className="h-4 w-4" />
               Total Sessions
             </div>
@@ -173,8 +174,17 @@ export default async function DashboardPage() {
             <p className="mt-1 text-sm text-zinc-400">Today</p>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur">
-            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-400">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur text-center">
+            <div className="mb-2 flex items-center justify-center gap-2 text-sm font-medium text-zinc-400">
+              <MapPin className="h-4 w-4" />
+              Completed Sessions
+            </div>
+            <div className="text-3xl font-bold text-white">{allCompletedSessions.length}</div>
+            <p className="mt-1 text-sm text-zinc-400">Finished today</p>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur text-center">
+            <div className="mb-2 flex items-center justify-center gap-2 text-sm font-medium text-zinc-400">
               <Activity className="h-4 w-4" />
               Active Sessions
             </div>
@@ -182,17 +192,17 @@ export default async function DashboardPage() {
             <p className="mt-1 text-sm text-emerald-400">Currently charging</p>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur">
-            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-400">
-              <MapPin className="h-4 w-4" />
-              Completed
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur text-center">
+            <div className="mb-2 flex items-center justify-center gap-2 text-sm font-medium text-zinc-400">
+              <Clock className="h-4 w-4" />
+              Planned Sessions
             </div>
-            <div className="text-3xl font-bold text-white">{allCompletedSessions.length}</div>
-            <p className="mt-1 text-sm text-zinc-400">Finished today</p>
+            <div className="text-3xl font-bold text-white">{allPlannedSessions.length}</div>
+            <p className="mt-1 text-sm text-blue-400">Upcoming</p>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur">
-            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-400">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur text-center">
+            <div className="mb-2 flex items-center justify-center gap-2 text-sm font-medium text-zinc-400">
               <BarChart3 className="h-4 w-4" />
               Unique Stations
             </div>
@@ -262,7 +272,7 @@ export default async function DashboardPage() {
                             {session.station.name}
                           </div>
                           {carPlate && !stationHasActiveSession && isLatestCompletedForStation && (
-                            <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-400">
+                            <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-400">
                               {carPlate}
                             </span>
                           )}
@@ -317,7 +327,7 @@ export default async function DashboardPage() {
                             {session.station.name}
                           </div>
                           {carPlate && (
-                            <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-400">
+                            <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-400">
                               {carPlate}
                             </span>
                           )}
@@ -369,7 +379,7 @@ export default async function DashboardPage() {
                             {session.station.name}
                           </div>
                           {carPlate && (
-                            <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-400">
+                            <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-400">
                               {carPlate}
                             </span>
                           )}
@@ -524,8 +534,10 @@ export default async function DashboardPage() {
                                   </span>
                                 )}
                               </div>
-                              <div className="text-sm text-zinc-400">
-                                {user.carNumberPlate}
+                              <div>
+                                <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-400">
+                                  {user.carNumberPlate}
+                                </span>
                               </div>
                               <div className="text-xs text-zinc-500 mt-1">
                                 ID: {user.userId}
@@ -533,7 +545,7 @@ export default async function DashboardPage() {
                             </div>
                             <div className="mb-3 text-xs text-zinc-500">
                               {hasSessions ? (
-                                <span className="text-emerald-400">
+                                <span className="text-zinc-400">
                                   {userSessions.length} session{userSessions.length !== 1 ? 's' : ''}
                                 </span>
                               ) : (
