@@ -19,7 +19,8 @@ After **every** code change (no exceptions):
 2. Run the integration test suite — `npm run test:integration`
 3. Run coverage to confirm thresholds are maintained — `npm run test:coverage`
 4. Run the E2E suite for any change that affects user-visible flows, routing, authentication, authorization, forms, dialogs, mutations, or dashboard workflows — `npm run test:e2e`
-5. If coverage drops below 80% on any business-logic file, add meaningful tests to restore it before finishing.
+5. Ensure any temporary Neon branches created for E2E validation are deleted after the run, and prune stale `e2e/*` branches before retrying if Neon branch limits are reached.
+6. If coverage drops below 80% on any business-logic file, add meaningful tests to restore it before finishing.
 
 ---
 
@@ -321,6 +322,12 @@ The project uses **pg-mem** (in-memory PostgreSQL) for integration tests. Key fa
 - **Known pg-mem limitation**: `LEFT JOIN LATERAL` (used by drizzle's `with:` relation loading) is not supported. Skip those tests with `it.skip` and a comment, and rely on unit tests for relation-loading coverage.
 - **Timezone**: pg-mem returns timestamps as UTC strings. Use `getUTCHours()` / `getUTCMinutes()` in assertions, never `getHours()` / `getMinutes()`.
 
+## Playwright E2E Environment Hygiene
+
+- Any helper or script that creates temporary Neon branches for E2E runs MUST clean them up before finishing.
+- If Neon returns a root-branch or branch-count limit error, prune stale `e2e/*` branches before retrying the run.
+- E2E infrastructure changes are not complete until branch lifecycle cleanup is handled explicitly and repeatably.
+
 ---
 
 ## Checklist — Required Before Finishing Any Change
@@ -336,5 +343,6 @@ Run through this checklist for **every** code change — not only new features:
 - [ ] Ran `npm run test:integration` — all integration tests pass (0 failures)
 - [ ] Ran `npm run test:coverage` — all business logic files remain at ≥ 80% Stmts / Branch / Funcs / Lines
 - [ ] Ran `npm run test:e2e` for any change that affects real browser workflows, and the affected E2E coverage passes
+- [ ] Confirmed temporary Neon E2E branches were deleted and stale `e2e/*` leftovers were pruned if needed
 - [ ] Coverage did not drop compared to before the change; if it did, added tests to restore or exceed the previous level
 - [ ] No existing tests were broken by the change

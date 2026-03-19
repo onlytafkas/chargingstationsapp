@@ -24,6 +24,9 @@ test.describe("Authentication guards", () => {
     const home = new HomePage(page);
     await home.goto();
 
+    await expect(
+      page.getByRole("heading", { name: /charging stations app v1\.0\.0/i })
+    ).toBeVisible();
     await expect(home.getStartedButton).toBeVisible();
     await expect(home.startManagingButton).toBeVisible();
     await expect(page).toHaveURL(/\/$/);

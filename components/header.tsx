@@ -3,13 +3,23 @@
 import { SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 
-export function Header() {
+interface HeaderProps {
+  versionLabel: string;
+}
+
+export function Header({ versionLabel }: HeaderProps) {
   return (
     <header className="border-b border-border bg-background font-sans">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center">
-          <h1 className="text-xl font-semibold text-foreground">
-            Charging Stations App
+          <h1
+            aria-label={`Charging Stations App ${versionLabel}`}
+            className="flex items-baseline gap-2 text-xl font-semibold text-foreground"
+          >
+            <span>Charging Stations App</span>
+            <span className="text-sm font-normal text-muted-foreground">
+              {versionLabel}
+            </span>
           </h1>
         </div>
         

@@ -1,12 +1,15 @@
 {
   "name": "charging-stations-app",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "dev:clean": "pwsh -File ./scripts/dev.ps1",
     "build": "next build",
     "start": "next start",
+    "version:patch": "tsx scripts/bump-version.ts patch",
+    "version:minor": "tsx scripts/bump-version.ts minor",
+    "version:major": "tsx scripts/bump-version.ts major",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",

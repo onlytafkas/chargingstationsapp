@@ -18,14 +18,32 @@ import { clerk, setupClerkTestingToken } from "@clerk/testing/playwright";
 const E2E_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "";
 const E2E_REGULAR_EMAIL = process.env.E2E_REGULAR_EMAIL ?? "";
 
+async function signInWithRetry(page: Page, emailAddress: string): Promise<void> {
+  const maxAttempts = 2;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await setupClerkTestingToken({ page });
+      await page.goto("/");
+      await clerk.signIn({ page, emailAddress });
+      return;
+    } catch (error) {
+      if (attempt === maxAttempts) {
+        throw error;
+      }
+
+      await page.context().clearCookies();
+      await page.goto("/", { waitUntil: "networkidle" });
+    }
+  }
+}
+
 /**
  * Sign in as the E2E admin user and navigate to /dashboard.
  * The admin is seeded with isAdmin=true, isActive=true in global-setup.ts.
  */
 export async function loginAsAdmin(page: Page): Promise<void> {
-  await setupClerkTestingToken({ page });
-  await page.goto("/");
-  await clerk.signIn({ page, emailAddress: E2E_ADMIN_EMAIL });
+  await signInWithRetry(page, E2E_ADMIN_EMAIL);
   await page.goto("/dashboard");
   await page.waitForURL("**/dashboard");
 }
@@ -35,9 +53,7 @@ export async function loginAsAdmin(page: Page): Promise<void> {
  * The regular user is seeded with isAdmin=false, isActive=true.
  */
 export async function loginAsUser(page: Page): Promise<void> {
-  await setupClerkTestingToken({ page });
-  await page.goto("/");
-  await clerk.signIn({ page, emailAddress: E2E_REGULAR_EMAIL });
+  await signInWithRetry(page, E2E_REGULAR_EMAIL);
   await page.goto("/dashboard");
   await page.waitForURL("**/dashboard");
 }

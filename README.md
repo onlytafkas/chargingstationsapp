@@ -23,6 +23,33 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Versioning
+
+This project uses [Semantic Versioning 2.0.0](https://semver.org/) for every change that alters the product surface:
+
+- `PATCH` for backward-compatible fixes
+- `MINOR` for backward-compatible features
+- `MAJOR` for breaking changes
+
+The canonical app version lives in `package.json` and is surfaced in the UI header as `Charging Stations App vX.Y.Z`.
+
+### Version Commands
+
+```bash
+npm run version:patch
+npm run version:minor
+npm run version:major
+```
+
+## Release Notes
+
+### v1.0.0
+
+- Added SemVer-based application versioning with centralized validation and bump logic.
+- Displayed the current version in the header alongside the app name.
+- Added version bump scripts for patch, minor, and major releases.
+- Hardened the Playwright E2E environment with isolated build output, isolated server port, and automatic cleanup of stale Neon E2E branches.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

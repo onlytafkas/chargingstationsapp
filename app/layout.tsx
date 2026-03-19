@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/ui/themes";
 import { Header } from "@/components/header";
+import { appVersionLabel } from "@/lib/version";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,7 +36,7 @@ export default function RootLayout({
           signUpFallbackRedirectUrl="/dashboard"
           appearance={{ theme: dark }}
         >
-          <Header />
+          <Header versionLabel={appVersionLabel} />
           {children}
         </ClerkProvider>
       </body>

@@ -16,7 +16,7 @@ export default defineConfig({
   workers: 1, // single worker — all tests share one seeded DB state
   reporter: [["list"], ["html", { outputFolder: "playwright-report", open: "never" }]],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://localhost:3100",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -29,13 +29,14 @@ export default defineConfig({
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
+    command: "npm run dev -- --port 3100",
+    url: "http://localhost:3100",
+    reuseExistingServer: false,
     timeout: 120_000,
     env: {
       // Override DATABASE_URL so Next.js server uses the test DB, not the dev DB
       DATABASE_URL: databaseUrl,
+      E2E_SERVER: "true",
       CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY ?? "",
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
         process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "",

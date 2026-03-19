@@ -37,6 +37,10 @@ const BRANCH_PREFIX = "e2e/run-";
 const NEON_API = "https://console.neon.tech/api/v2";
 const E2E_PARENT_BRANCH = (process.env.E2E_PARENT_BRANCH ?? "").trim();
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ── Neon API helpers ─────────────────────────────────────────────────────────
 
 async function neonRequest(
@@ -67,6 +71,12 @@ type NeonBranch = {
   default: boolean;
 };
 
+function isRootBranchLimitExceeded(error: unknown): boolean {
+  return (
+    error instanceof Error && error.message.includes("ROOT_BRANCHES_LIMIT_EXCEEDED")
+  );
+}
+
 async function listBranches(search?: string): Promise<NeonBranch[]> {
   const query = search
     ? `?search=${encodeURIComponent(search)}`
@@ -77,6 +87,23 @@ async function listBranches(search?: string): Promise<NeonBranch[]> {
   )) as { branches: NeonBranch[] };
 
   return data.branches;
+}
+
+async function deleteExistingE2EBranches(): Promise<void> {
+  const branches = await listBranches();
+  const e2eBranches = branches.filter(
+    (branch) => !branch.default && branch.name.startsWith(BRANCH_PREFIX)
+  );
+
+  if (e2eBranches.length === 0) {
+    return;
+  }
+
+  console.log("\n🧹 Pruning stale e2e Neon branches...");
+  for (const branch of e2eBranches) {
+    console.log(`   Removing ${branch.name} (${branch.id})`);
+    await deleteBranch(branch.id);
+  }
 }
 
 async function resolveParentBranch(): Promise<NeonBranch> {
@@ -114,14 +141,33 @@ async function createBranch(
 ): Promise<{ branchId: string; connectionUrl: string }> {
   assertGeneratedE2EBranchName(name);
 
-  const data = (await neonRequest(
-    "POST",
-    `/projects/${NEON_PROJECT_ID}/branches`,
-    {
-      branch: { name, parent_id: parentBranchId, init_source: "schema-only" },
-      endpoints: [{ type: "read_write" }],
+  let data: { branch: { id: string } };
+
+  try {
+    data = (await neonRequest(
+      "POST",
+      `/projects/${NEON_PROJECT_ID}/branches`,
+      {
+        branch: { name, parent_id: parentBranchId, init_source: "schema-only" },
+        endpoints: [{ type: "read_write" }],
+      }
+    )) as { branch: { id: string } };
+  } catch (error) {
+    if (!isRootBranchLimitExceeded(error)) {
+      throw error;
     }
-  )) as { branch: { id: string } };
+
+    await deleteExistingE2EBranches();
+
+    data = (await neonRequest(
+      "POST",
+      `/projects/${NEON_PROJECT_ID}/branches`,
+      {
+        branch: { name, parent_id: parentBranchId, init_source: "schema-only" },
+        endpoints: [{ type: "read_write" }],
+      }
+    )) as { branch: { id: string } };
+  }
 
   const branchId = data.branch.id;
 
@@ -138,10 +184,28 @@ async function createBranch(
 
 async function deleteBranch(branchId: string): Promise<void> {
   console.log(`\n🗑  Deleting Neon branch ${branchId}...`);
-  await neonRequest(
-    "DELETE",
-    `/projects/${NEON_PROJECT_ID}/branches/${branchId}`
-  );
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await neonRequest(
+        "DELETE",
+        `/projects/${NEON_PROJECT_ID}/branches/${branchId}`
+      );
+      console.log(`   Branch deleted.`);
+      return;
+    } catch (error) {
+      if (attempt === maxAttempts) {
+        throw error;
+      }
+
+      console.warn(
+        `   Delete attempt ${attempt} failed, retrying...`
+      );
+      await delay(1000 * attempt);
+    }
+  }
+
   console.log(`   Branch deleted.`);
 }
 
