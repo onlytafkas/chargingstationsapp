@@ -10,6 +10,7 @@ applyTo: "**"
 **MANDATORY — read and apply these rules for every code change, no exceptions.**
 
 - Every new piece of business logic MUST have **both unit tests and integration tests** written before or alongside the implementation.
+- Every new user-facing feature, admin workflow, auth flow, or end-to-end business journey MUST have a **meaningful Playwright E2E test** written before or alongside the implementation.
 - Tests must be **meaningful**: each test asserts real behaviour and covers a distinct scenario. Never write tests that exist only to inflate coverage numbers.
 - Tests are not optional and must pass before any change is considered complete.
 
@@ -17,7 +18,8 @@ After **every** code change (no exceptions):
 1. Run the full unit test suite to confirm no regressions — `npm run test`
 2. Run the integration test suite — `npm run test:integration`
 3. Run coverage to confirm thresholds are maintained — `npm run test:coverage`
-4. If coverage drops below 80% on any business-logic file, add meaningful tests to restore it before finishing.
+4. Run the E2E suite for any change that affects user-visible flows, routing, authentication, authorization, forms, dialogs, mutations, or dashboard workflows — `npm run test:e2e`
+5. If coverage drops below 80% on any business-logic file, add meaningful tests to restore it before finishing.
 
 ---
 
@@ -51,6 +53,7 @@ npm run test              # Run all unit tests once (CI mode)
 npm run test:watch        # Watch mode during development
 npm run test:integration  # Run integration tests against pg-mem
 npm run test:coverage     # Run all unit tests + generate coverage report
+npm run test:e2e          # Run Playwright end-to-end tests against the real app
 npm run test:ui           # Open the Vitest browser UI
 ```
 
@@ -58,7 +61,7 @@ npm run test:ui           # Open the Vitest browser UI
 
 ## File & Directory Structure
 
-Mirror the source tree under `__tests__/` for unit tests and under `__tests__/integration/` for integration tests:
+Mirror the source tree under `__tests__/` for unit tests, under `__tests__/integration/` for integration tests, and use `e2e/` for Playwright browser flows:
 
 ```
 __tests__/
@@ -73,6 +76,10 @@ __tests__/
     flows/               ← cross-entity integration flows
     helpers/
       test-db.ts         ← shared pg-mem instance + backup/restore helpers
+e2e/
+  helpers/               ← auth, db, and safety helpers for Playwright
+  pages/                 ← Playwright page objects wrapping the real UI
+  tests/                 ← end-to-end specs for user-visible feature flows
 ```
 
 **Naming**:
@@ -80,6 +87,8 @@ __tests__/
   Example: `data/loading-sessions.ts` → `__tests__/data/loading-sessions.test.ts`
 - Integration tests: source file name + `.integration.test.ts`  
   Example: `data/loading-sessions.ts` → `__tests__/integration/data/loading-sessions.integration.test.ts`
+- E2E tests: feature or workflow name + `.spec.ts`  
+  Example: station management flow → `e2e/tests/stations.spec.ts`
 
 ---
 
@@ -247,6 +256,25 @@ it("closes the dialog when Cancel is clicked", async () => {
 });
 ```
 
+### End-to-end features (`e2e/tests/*.spec.ts`)
+
+Every new user-visible feature or workflow must have at least one meaningful Playwright E2E test.
+
+Write E2E coverage when the change affects any of these:
+1. **Navigation / routing** — redirects, protected routes, tab changes, deep-link behaviour
+2. **Authentication / authorization** — sign-in, sign-out, role-based visibility, forbidden actions
+3. **Forms and dialogs** — opening, validation, submit success, cancel / dismiss
+4. **Cross-layer workflows** — UI + server action + database persistence + refreshed UI state
+5. **Regression-prone journeys** — multi-step flows that previously broke or depend on timing/state
+
+Each E2E test should verify real user outcomes such as:
+1. The user can reach the flow from the real application shell
+2. The intended action succeeds or the correct guard/error is shown
+3. The visible UI updates after the mutation or navigation completes
+4. Critical side effects are observable where appropriate (for example audit log entries, refreshed lists, new records shown)
+
+E2E tests must use the existing Playwright structure in `e2e/helpers/`, `e2e/pages/`, and `e2e/tests/`. Prefer updating page objects over duplicating raw selectors across specs.
+
 ---
 
 ## beforeEach Reset Pattern
@@ -303,8 +331,10 @@ Run through this checklist for **every** code change — not only new features:
 - [ ] Wrote a **meaningful unit test** for each identified path — happy path, error path, edge cases
 - [ ] Wrote a **meaningful integration test** for each new data function and server action
 - [ ] Wrote unit tests for every new business component in `components/`
+- [ ] Wrote or updated a **meaningful E2E test** for every new or changed user-visible feature flow
 - [ ] Ran `npm run test` — all unit tests pass (0 failures)
 - [ ] Ran `npm run test:integration` — all integration tests pass (0 failures)
 - [ ] Ran `npm run test:coverage` — all business logic files remain at ≥ 80% Stmts / Branch / Funcs / Lines
+- [ ] Ran `npm run test:e2e` for any change that affects real browser workflows, and the affected E2E coverage passes
 - [ ] Coverage did not drop compared to before the change; if it did, added tests to restore or exceed the previous level
 - [ ] No existing tests were broken by the change
