@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Zap, BarChart3, MapPin, Activity, Clock, Building2, Users, ShieldCheck } from "lucide-react";
 import { getUserLoadingSessions, getAllLoadingSessions } from "@/data/loading-sessions";
-import { getAllStations } from "@/data/stations";
+import { getAllStations, getTodaySessionCountsByStation } from "@/data/stations";
 import { getAllUsers, getUserInfo } from "@/data/usersinfo";
 import { clerkClient } from "@clerk/nextjs/server";
 import { CreateSessionDialog } from "@/components/session/create-session-dialog";
@@ -56,7 +56,12 @@ export default async function DashboardPage() {
   const adminDataPromise = isAdmin ? getAllUsers() : Promise.resolve([]);
   const auditLogsPromise = isAdmin ? getAllAuditLogs() : Promise.resolve([]);
 
-  const [allSessions, adminUsers, auditLogs] = await Promise.all([allSessionsPromise, adminDataPromise, auditLogsPromise]);
+  const [allSessions, adminUsers, auditLogs, todaySessionCountsByStation] = await Promise.all([
+    allSessionsPromise,
+    adminDataPromise,
+    auditLogsPromise,
+    getTodaySessionCountsByStation(),
+  ]);
 
   if (isAdmin) {
     users = adminUsers;
@@ -433,6 +438,7 @@ export default async function DashboardPage() {
                     {stations.map((station) => {
                       const stationSessions = allSessions.filter((s) => s.stationId === station.id);
                       const hasSessions = stationSessions.length > 0;
+                      const todaySessionCount = todaySessionCountsByStation.get(station.id) ?? 0;
                       
                       return (
                         <div
@@ -450,12 +456,12 @@ export default async function DashboardPage() {
                             )}
                           </div>
                           <div className="mb-3 text-xs text-zinc-500">
-                            {hasSessions ? (
+                            {todaySessionCount > 0 ? (
                               <span className="text-emerald-400">
-                                {stationSessions.length} reservation{stationSessions.length !== 1 ? 's' : ''}
+                                {todaySessionCount} reservation{todaySessionCount !== 1 ? 's' : ''} today
                               </span>
                             ) : (
-                              <span>No reservations</span>
+                              <span>No reservations today</span>
                             )}
                           </div>
                           <div className="flex gap-2">

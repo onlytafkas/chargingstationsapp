@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { sessions, stations } from "@/db/schema";
 import { eq, desc, and, ne, gt, lte, or, isNull } from "drizzle-orm";
+import { formatBrusselsReservationDateTime } from "../lib/date-time";
 
 /** Strips seconds and milliseconds so timestamps are stored at minute precision. */
 function toMinute(date: Date): Date {
@@ -337,13 +338,7 @@ export async function checkCooldownConstraint(
   if (proposedStartTime < nextAvailableTime) {
     return {
       valid: false,
-      message: `You must wait 4 hours after your last session ends. You can reserve again from ${nextAvailableTime.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      })}.`,
+      message: `You must wait 4 hours after your last session ends. You can reserve again from ${formatBrusselsReservationDateTime(nextAvailableTime)}.`,
       nextAvailableTime,
     };
   }

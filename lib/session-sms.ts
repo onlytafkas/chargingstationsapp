@@ -1,4 +1,5 @@
 import { getUserInfo } from "@/data/usersinfo";
+import { formatBrusselsDateTime } from "./date-time";
 
 export type SessionSmsEventType = "created" | "updated" | "deleted" | "start_reminder" | "end_reminder";
 
@@ -15,19 +16,7 @@ type SmsDeliveryResult =
   | { status: "skipped"; reason: "not_configured" | "missing_phone_number" };
 
 function formatSmsDateTime(value: Date | string): string {
-  const date = value instanceof Date ? value : new Date(value);
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Brussels",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZoneName: "short",
-  }).formatToParts(date);
-  const get = (type: string) => parts.find(p => p.type === type)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")} ${get("timeZoneName")}`;
+  return formatBrusselsDateTime(value);
 }
 
 function buildSessionSmsMessage(payload: SessionSmsPayload): string {

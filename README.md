@@ -19,6 +19,20 @@ The `dev:clean` command will automatically:
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Git Hooks
+
+Local commits are protected by a repository-managed `pre-commit` hook.
+
+- The hook runs `npm run test:piramid`
+- If any unit, coverage, integration, or E2E suite fails, the commit is blocked
+- The hook applies to commits made from VS Code and from the terminal because Git runs it before finalizing the commit
+
+If Git hooks are not configured yet in your clone, install them with:
+
+```bash
+npm run hooks:install
+```
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 ## SMS Notifications
@@ -54,6 +68,14 @@ npm run version:major
 ```
 
 ## Release Notes
+
+### v1.4.2
+
+- Fixed the Stations tab so each station card shows only today's reservation count.
+
+### v1.4.1
+
+- Fixed the reservation cooldown messaging so the next available booking time is shown consistently in Brussels time.
 
 ### v1.4.0
 

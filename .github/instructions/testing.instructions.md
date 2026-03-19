@@ -12,22 +12,27 @@ applyTo: "**"
 - Every new piece of business logic MUST have **both unit tests and integration tests** written before or alongside the implementation.
 - Every new user-facing feature, admin workflow, auth flow, or end-to-end business journey MUST have a **meaningful Playwright E2E test** written before or alongside the implementation.
 - Tests must be **meaningful**: each test asserts real behaviour and covers a distinct scenario. Never write tests that exist only to inflate coverage numbers.
-- Do not commit skipped tests (`it.skip`, `test.skip`, `describe.skip`) or focused tests (`it.only`, `test.only`, `describe.only`). If a test must be temporarily disabled while diagnosing infrastructure, document the root cause in the relevant instruction or issue, fix it immediately, and remove the skip before finishing the task.
+- Do not commit skipped tests (`it.skip`, `test.skip`, `describe.skip`) or focused tests (`it.only`, `test.only`, `describe.only`). If a test must be temporarily disabled while diagnosing infrastructure, document the root cause in the relevant instruction or issue, fix it immediately, and remove the skip before finishing the task. This rule is about test code only; it is separate from the one-time per-task confirmation that may waive running the test suites.
 - Tests are not optional and must pass before any change is considered complete.
+- GitHub Copilot MUST ask once per task whether to skip all validation suite execution for that task. If the user grants that waiver, Copilot may skip `npm run test`, `npm run test:integration`, `npm run test:coverage`, and `npm run test:e2e` for that task only. If the user does not grant the waiver, Copilot MUST run all four suites after every code change.
+- GitHub Copilot SHOULD add new, meaningful tests when coverage gaps, missing branches, or missing scenarios are found, and MUST run the relevant suites after creating those tests.
+- GitHub Copilot MUST NOT automatically modify an existing test file. If satisfying the change would require editing an existing test, Copilot must report what is broken or outdated and stop for user approval. Creating brand-new test files is allowed.
 
 After **every** code change (no exceptions):
-1. Run the full unit test suite to confirm no regressions — `npm run test`
-2. Run the integration test suite — `npm run test:integration`
-3. Run coverage to confirm thresholds are maintained — `npm run test:coverage`
-4. Run the E2E suite for any change that affects user-visible flows, routing, authentication, authorization, forms, dialogs, mutations, or dashboard workflows — `npm run test:e2e`
-5. Ensure any temporary Neon branches created for E2E validation are deleted after the run, and prune stale `e2e/*` branches before retrying if Neon branch limits are reached.
-6. If coverage drops below 80% on any business-logic file, add meaningful tests to restore it before finishing.
+1. Ask once whether the user wants to waive all validation suite execution for the current task.
+2. If the user grants the waiver, skip the remaining steps in this section for that task only and state clearly that validation was not run.
+3. If the user does not grant the waiver, run the full unit test suite to confirm no regressions — `npm run test`
+4. Run the integration test suite — `npm run test:integration`
+5. Run coverage to confirm thresholds are maintained — `npm run test:coverage`
+6. Run the E2E suite — `npm run test:e2e`
+7. Ensure any temporary Neon branches created for E2E validation are deleted after the run, and prune stale `e2e/*` branches before retrying if Neon branch limits are reached.
+8. If coverage drops below 80% on any business-logic file, add meaningful new tests to restore it before finishing. If the required fix would touch an existing test file, stop and ask the user before editing it.
 
 ---
 
 ## Coverage Thresholds
 
-The project targets **80% minimum on all four metrics** (Statements, Branches, Functions, Lines) for every business logic file:
+The project targets **80% minimum on each of the four metrics individually** (Statements, Branches, Functions, Lines) for every business logic file. Do not treat coverage as a cross-metric average:
 
 | Layer | Target |
 |---|---|
@@ -302,6 +307,7 @@ beforeEach(() => {
 5. **One concept per test** — keep each `it()` focused on a single scenario
 6. **Descriptive names** — write test names as sentences: `"returns error when station is not found"`
 7. **No dead coverage** — do not spy or call a function just to move a line into the covered set without asserting its return value or side effect
+8. **Prefer new test files over editing existing ones** — when GitHub Copilot adds coverage or scenario tests, it should do so in new test files unless the user explicitly approves changes to an existing test file.
 
 ## External Service Testing
 
@@ -348,10 +354,12 @@ Run through this checklist for **every** code change — not only new features:
 - [ ] Wrote a **meaningful integration test** for each new data function and server action
 - [ ] Wrote unit tests for every new business component in `components/`
 - [ ] Wrote or updated a **meaningful E2E test** for every new or changed user-visible feature flow
-- [ ] Ran `npm run test` — all unit tests pass (0 failures)
-- [ ] Ran `npm run test:integration` — all integration tests pass (0 failures)
-- [ ] Ran `npm run test:coverage` — all business logic files remain at ≥ 80% Stmts / Branch / Funcs / Lines
-- [ ] Ran `npm run test:e2e` for any change that affects real browser workflows, and the affected E2E coverage passes
-- [ ] Confirmed temporary Neon E2E branches were deleted and stale `e2e/*` leftovers were pruned if needed
+- [ ] Asked once whether the user wanted to waive validation suite execution for the current task
+- [ ] If the user did not waive validation, ran `npm run test` — all unit tests pass (0 failures)
+- [ ] If the user did not waive validation, ran `npm run test:integration` — all integration tests pass (0 failures)
+- [ ] If the user did not waive validation, ran `npm run test:coverage` — all business logic files remain at ≥ 80% Stmts / Branch / Funcs / Lines individually
+- [ ] If the user did not waive validation, ran `npm run test:e2e` — the E2E suite passes
+- [ ] If the user did not waive validation, confirmed temporary Neon E2E branches were deleted and stale `e2e/*` leftovers were pruned if needed
 - [ ] Coverage did not drop compared to before the change; if it did, added tests to restore or exceed the previous level
-- [ ] No existing tests were broken by the change
+- [ ] Added useful new tests when coverage or scenario gaps were found, and ran the relevant suites after creating them
+- [ ] Did not automatically edit an existing test file without the user's approval; if an existing test needed changes, reported that to the user

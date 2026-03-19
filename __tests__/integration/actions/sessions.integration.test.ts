@@ -64,6 +64,18 @@ function isoTodayPlusHours(offsetHours: number) {
   return d.toISOString();
 }
 
+function formatReservationDateTime(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Brussels",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 beforeAll(async () => {
   emptyBackup.restore();
   await createUser({ userId: USER_ID, carNumberPlate: "SS-001", mobileNumber: "+15550000001" });
@@ -220,7 +232,10 @@ describe("createSession", () => {
       endTime: isoTodayPlusHours(1),
     });
 
-    expect(result).toMatchObject({ error: expect.stringContaining("4 hours") });
+    const expectedNextAvailable = new Date(new Date(endedAt).getTime() + 4 * 60 * 60 * 1000);
+    expect(result).toEqual({
+      error: `You must wait 4 hours after your last session ends. You can reserve again from ${formatReservationDateTime(expectedNextAvailable)}.`,
+    });
   });
 
   it("writes an unauthorized audit log entry when user is not logged in", async () => {

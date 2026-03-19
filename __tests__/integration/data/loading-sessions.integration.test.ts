@@ -334,7 +334,7 @@ describe("checkCooldownConstraint", () => {
 
     const result = await checkCooldownConstraint(USER_ID, dateAt(11));
     expect(result.valid).toBe(false);
-    expect(result.message).toContain("4 hours");
+    expect(result.message).toBe("You must wait 4 hours after your last session ends. You can reserve again from Mar 18, 14:00.");
     expect(result.nextAvailableTime).toBeInstanceOf(Date);
   });
 

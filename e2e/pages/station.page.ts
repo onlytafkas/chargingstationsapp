@@ -10,6 +10,15 @@ export class StationPage {
     this.addStationButton = page.getByRole("button", { name: "Add Station" });
   }
 
+  getStationCard(stationName: string) {
+    return this.page
+      .locator("div")
+      .filter({ hasText: stationName })
+      .filter({ has: this.page.getByRole("button", { name: "Edit" }) })
+      .filter({ has: this.page.getByRole("button", { name: "Delete" }) })
+      .last();
+  }
+
   /** Open the "Add Station" dialog */
   async clickAddStation() {
     await this.addStationButton.click();
@@ -34,17 +43,7 @@ export class StationPage {
 
   /** Open the edit dialog for the station with the given name */
   async clickEdit(stationName: string) {
-    // Narrow to the specific station card: the innermost div that contains
-    // the exact station name text AND an Edit button (avoids matching parent
-    // containers which hold multiple Edit buttons → strict-mode violation).
-    await this.page
-      .locator("div")
-      .filter({ hasText: stationName })
-      .filter({ has: this.page.getByRole("button", { name: "Edit" }) })
-      .filter({ has: this.page.getByRole("button", { name: "Delete" }) })
-      .last()
-      .getByRole("button", { name: "Edit" })
-      .click();
+    await this.getStationCard(stationName).getByRole("button", { name: "Edit" }).click();
     await this.page.getByRole("dialog", { name: "Edit Station" }).waitFor();
   }
 
@@ -60,15 +59,7 @@ export class StationPage {
 
   /** Open the delete dialog for the station with the given name */
   async clickDelete(stationName: string) {
-    // Same narrowing strategy as clickEdit to avoid strict-mode violations.
-    await this.page
-      .locator("div")
-      .filter({ hasText: stationName })
-      .filter({ has: this.page.getByRole("button", { name: "Edit" }) })
-      .filter({ has: this.page.getByRole("button", { name: "Delete" }) })
-      .last()
-      .getByRole("button", { name: "Delete" })
-      .click();
+    await this.getStationCard(stationName).getByRole("button", { name: "Delete" }).click();
     await this.page.getByRole("dialog", { name: "Delete Station" }).waitFor();
   }
 

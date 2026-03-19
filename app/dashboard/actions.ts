@@ -9,6 +9,7 @@ import { createUser, updateUser, deactivateUser, activateUser, getUserInfo } fro
 import { triggerSessionReminders } from "@/data/session-reminders";
 import { insertAuditLog } from "@/data/audit";
 import { revalidatePath } from "next/cache";
+import { formatBrusselsReservationTime } from "../../lib/date-time";
 import { sendSessionEventSms, type SessionSmsEventType } from "@/lib/session-sms";
 
 async function getRequestMetadata() {
@@ -140,11 +141,7 @@ export async function createSession(data: CreateSessionInput) {
           ? new Date(nextAvailableStart.getTime() + durationMs)
           : null;
 
-        const adjustedTimeLabel = nextAvailableStart.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-        });
+        const adjustedTimeLabel = formatBrusselsReservationTime(nextAvailableStart);
 
         await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "confirmation_required", errorMessage: `Overlap detected, suggested start: ${adjustedTimeLabel}`, afterData: data, ...meta });
         return {
@@ -263,11 +260,7 @@ export async function updateSession(data: UpdateSessionInput) {
           ? new Date(nextAvailableStart.getTime() + durationMs)
           : null;
 
-        const adjustedTimeLabel = nextAvailableStart.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-        });
+        const adjustedTimeLabel = formatBrusselsReservationTime(nextAvailableStart);
 
         await insertAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "confirmation_required", errorMessage: `Overlap detected, suggested start: ${adjustedTimeLabel}`, beforeData: existingSession, afterData: data, ...meta });
         return {

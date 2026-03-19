@@ -199,24 +199,23 @@ describe("createSession", () => {
   it("returns error when cooldown constraint is violated", async () => {
     mockCheckCooldownConstraint.mockResolvedValue({
       valid: false,
-      message: "You must wait 4 hours after your last session ends.",
-      nextAvailableTime: new Date(),
+      message: "You must wait 4 hours after your last session ends. You can reserve again from Mar 18, 15:00.",
+      nextAvailableTime: new Date("2026-03-18T14:00:00.000Z"),
     });
     const result = await createSession(validSessionInput());
-    expect(result.error).toMatch(/4 hours/i);
+    expect(result.error).toBe("You must wait 4 hours after your last session ends. You can reserve again from Mar 18, 15:00.");
   });
 
   it("returns needsConfirmation with adjusted times when slot is taken", async () => {
     mockCheckSessionOverlap.mockResolvedValue(true);
-    const nextStart = new Date();
-    nextStart.setHours(nextStart.getHours() + 2);
+    const nextStart = new Date("2026-03-18T14:05:00.000Z");
     mockFindNextAvailableStartTime.mockResolvedValue(nextStart);
 
     const result = await createSession(validSessionInput());
     expect(result).toMatchObject({
       needsConfirmation: true,
       adjustedStartTime: expect.any(String),
-      message: expect.stringContaining("next available slot"),
+      message: "This time slot is taken. The next available slot starts at 15:05. Do you want to reserve at this time instead?",
     });
   });
 
@@ -486,15 +485,14 @@ describe("updateSession", () => {
   it("returns needsConfirmation when slot is taken and an adjusted time is available", async () => {
     mockGetSessionById.mockResolvedValue(makeSession({ userId: "user_test123" }));
     mockCheckSessionOverlap.mockResolvedValue(true);
-    const nextStart = new Date();
-    nextStart.setHours(nextStart.getHours() + 2);
+    const nextStart = new Date("2026-03-18T14:05:00.000Z");
     mockFindNextAvailableStartTime.mockResolvedValue(nextStart);
 
     const result = await updateSession(validUpdateInput());
     expect(result).toMatchObject({
       needsConfirmation: true,
       adjustedStartTime: expect.any(String),
-      message: expect.stringContaining("next available slot"),
+      message: "This time slot is taken. The next available slot starts at 15:05. Do you want to update to this time instead?",
     });
   });
 

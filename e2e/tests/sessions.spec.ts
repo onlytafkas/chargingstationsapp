@@ -205,10 +205,16 @@ test.describe("Session booking", () => {
     const yesterdayEnd = new Date(yesterdayStart);
     yesterdayEnd.setHours(10, 0, 0, 0);
 
-    const todayStart = new Date(now);
-    todayStart.setHours(11, 0, 0, 0);
-    const todayEnd = new Date(todayStart);
-    todayEnd.setHours(12, 0, 0, 0);
+    const todayBoundary = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const elapsedTodayMs = now.getTime() - todayBoundary.getTime();
+    const completedLeadMs = Math.max(
+      1,
+      Math.min(30 * 60 * 1000, Math.floor(elapsedTodayMs / 2)),
+    );
+    const todayEnd = new Date(now.getTime() - completedLeadMs);
+    const todayStart = new Date(
+      Math.max(todayBoundary.getTime() + 1, todayEnd.getTime() - 30 * 60 * 1000),
+    );
 
     await testDb.insert(sessions).values([
       {

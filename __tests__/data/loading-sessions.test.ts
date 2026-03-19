@@ -301,7 +301,7 @@ describe("checkCooldownConstraint", () => {
     ]);
     const result = await checkCooldownConstraint("user_abc", dt("2026-03-18T13:00:00Z"));
     expect(result.valid).toBe(false);
-    expect(result.message).toBeDefined();
+    expect(result.message).toBe("You must wait 4 hours after your last session ends. You can reserve again from Mar 18, 15:00.");
     expect(result.nextAvailableTime).toBeDefined();
     expect(result.nextAvailableTime!.getTime()).toBe(dt("2026-03-18T14:00:00Z").getTime());
   });
@@ -332,6 +332,7 @@ describe("checkCooldownConstraint", () => {
     // Proposing 12:00 — only 2h after 10:00, blocked
     const result = await checkCooldownConstraint("user_abc", dt("2026-03-18T12:00:00Z"));
     expect(result.valid).toBe(false);
+    expect(result.message).toBe("You must wait 4 hours after your last session ends. You can reserve again from Mar 18, 15:00.");
     expect(result.nextAvailableTime!.getTime()).toBe(dt("2026-03-18T14:00:00Z").getTime());
   });
 
@@ -351,6 +352,7 @@ describe("checkCooldownConstraint", () => {
     // Proposing 12:00 — only 2h after the latest (10:00) → blocked, must wait until 14:00.
     const result = await checkCooldownConstraint("user_abc", dt("2026-03-18T12:00:00Z"));
     expect(result.valid).toBe(false);
+    expect(result.message).toBe("You must wait 4 hours after your last session ends. You can reserve again from Mar 18, 15:00.");
     expect(result.nextAvailableTime!.getTime()).toBe(dt("2026-03-18T14:00:00Z").getTime());
   });
 });
