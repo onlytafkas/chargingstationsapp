@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["__tests__/integration/**/*.test.ts"],
+    setupFiles: ["./vitest.server-only.setup.ts"],
     globals: true,
     // Run all integration test files in a single process so they share the
     // same pg-mem singleton (module cache) and backup/restore cleanly.

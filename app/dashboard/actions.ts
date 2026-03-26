@@ -7,7 +7,7 @@ import { createLoadingSession, updateLoadingSession, deleteLoadingSession, getSe
 import { createStation, updateStation, deleteStation, checkStationHasSessions, getStationById } from "@/data/stations";
 import { createUser, updateUser, deactivateUser, activateUser, getUserInfo } from "@/data/usersinfo";
 import { triggerSessionReminders } from "@/data/session-reminders";
-import { insertAuditLog } from "@/data/audit";
+import { writeInternalAuditLog } from "@/lib/server/write-internal-audit-log";
 import { revalidatePath } from "next/cache";
 import { formatBrusselsReservationTime } from "../../lib/date-time";
 import { sendSessionEventSms, type SessionSmsEventType } from "@/lib/session-sms";
@@ -64,7 +64,7 @@ export async function createSession(data: CreateSessionInput) {
   // 1. Check authentication
   const { userId } = await auth();
   if (!userId) {
-    await insertAuditLog({ performedByUserId: null, action: "CREATE_SESSION", entityType: "session", status: "unauthorized", errorMessage: "Unauthorized", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: null, action: "CREATE_SESSION", entityType: "session", status: "unauthorized", errorMessage: "Unauthorized", afterData: data, ...meta });
     return { error: "Unauthorized" };
   }
 
@@ -73,25 +73,25 @@ export async function createSession(data: CreateSessionInput) {
     createSessionSchema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "validation_error", errorMessage: error.issues[0].message, afterData: data, ...meta });
+      await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "validation_error", errorMessage: error.issues[0].message, afterData: data, ...meta });
       return { error: error.issues[0].message };
     }
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "validation_error", errorMessage: "Invalid input", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "validation_error", errorMessage: "Invalid input", afterData: data, ...meta });
     return { error: "Invalid input" };
   }
 
   // 3. Check that the user has a registered userinfo record
   const userInfo = await getUserInfo(userId);
   if (!userInfo) {
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "forbidden", errorMessage: "Account not registered", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "forbidden", errorMessage: "Account not registered", afterData: data, ...meta });
     return { error: "Your account is not registered in the system. Please contact an administrator to add your user information before making a reservation." };
   }
   if (!userInfo.isActive) {
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "forbidden", errorMessage: "Account deactivated", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "forbidden", errorMessage: "Account deactivated", afterData: data, ...meta });
     return { error: "Your account has been deactivated. Please contact an administrator to restore access." };
   }
   if (!userInfo.mobileNumber?.trim()) {
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "forbidden", errorMessage: "Mobile number missing", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "forbidden", errorMessage: "Mobile number missing", afterData: data, ...meta });
     return { error: "Your mobile number is missing. Please contact an administrator to update your profile before making a reservation." };
   }
 
@@ -101,7 +101,7 @@ export async function createSession(data: CreateSessionInput) {
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(23, 59, 59, 999);
   if (startTime > tomorrow) {
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "validation_error", errorMessage: "Reservation too far in the future", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "validation_error", errorMessage: "Reservation too far in the future", afterData: data, ...meta });
     return { error: "You can only reserve up to the day after today." };
   }
 
@@ -109,12 +109,12 @@ export async function createSession(data: CreateSessionInput) {
   try {
     const cooldownCheck = await checkCooldownConstraint(userId, new Date(data.startTime));
     if (!cooldownCheck.valid) {
-      await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "validation_error", errorMessage: cooldownCheck.message ?? "Cooldown constraint violated", afterData: data, ...meta });
+      await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "validation_error", errorMessage: cooldownCheck.message ?? "Cooldown constraint violated", afterData: data, ...meta });
       return { error: cooldownCheck.message || "You must wait 4 hours after your last session ends before reserving again." };
     }
   } catch (error) {
     console.error("Failed to check cooldown constraint:", error);
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "error", errorMessage: "Failed to validate reservation cooldown", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "error", errorMessage: "Failed to validate reservation cooldown", afterData: data, ...meta });
     return { error: "Failed to validate reservation cooldown" };
   }
 
@@ -143,7 +143,7 @@ export async function createSession(data: CreateSessionInput) {
 
         const adjustedTimeLabel = formatBrusselsReservationTime(nextAvailableStart);
 
-        await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "confirmation_required", errorMessage: `Overlap detected, suggested start: ${adjustedTimeLabel}`, afterData: data, ...meta });
+        await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "confirmation_required", errorMessage: `Overlap detected, suggested start: ${adjustedTimeLabel}`, afterData: data, ...meta });
         return {
           needsConfirmation: true as const,
           adjustedStartTime: nextAvailableStart.toISOString(),
@@ -151,7 +151,7 @@ export async function createSession(data: CreateSessionInput) {
           message: `This time slot is taken. The next available slot starts at ${adjustedTimeLabel}. Do you want to reserve at this time instead?`,
         };
       } else {
-        await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "validation_error", errorMessage: "No available slot after overlap", afterData: data, ...meta });
+        await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "validation_error", errorMessage: "No available slot after overlap", afterData: data, ...meta });
         return {
           error: "This time slot conflicts with another session. Please choose a different time.",
         };
@@ -159,7 +159,7 @@ export async function createSession(data: CreateSessionInput) {
     }
   } catch (error) {
     console.error("Failed to check session overlap:", error);
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "error", errorMessage: "Failed to validate session timing", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "error", errorMessage: "Failed to validate session timing", afterData: data, ...meta });
     return { error: "Failed to validate session timing" };
   }
 
@@ -176,11 +176,11 @@ export async function createSession(data: CreateSessionInput) {
 
     revalidatePath("/dashboard");
 
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", entityId: String(session.id), status: "success", afterData: session, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", entityId: String(session.id), status: "success", afterData: session, ...meta });
     return { success: true, data: session };
   } catch (error) {
     console.error("Failed to create loading session:", error);
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "error", errorMessage: "Failed to create charging session", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_SESSION", entityType: "session", status: "error", errorMessage: "Failed to create charging session", afterData: data, ...meta });
     return { error: "Failed to create charging session" };
   }
 }
@@ -205,7 +205,7 @@ export async function updateSession(data: UpdateSessionInput) {
   // 1. Check authentication
   const { userId } = await auth();
   if (!userId) {
-    await insertAuditLog({ performedByUserId: null, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "unauthorized", errorMessage: "Unauthorized", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: null, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "unauthorized", errorMessage: "Unauthorized", afterData: data, ...meta });
     return { error: "Unauthorized" };
   }
 
@@ -215,11 +215,11 @@ export async function updateSession(data: UpdateSessionInput) {
     getUserInfo(userId),
   ]);
   if (!existingSession) {
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "not_found", errorMessage: "Session not found", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "not_found", errorMessage: "Session not found", afterData: data, ...meta });
     return { error: "Session not found" };
   }
   if (existingSession.userId !== userId && (!callerInfo?.isAdmin || !callerInfo?.isActive)) {
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "forbidden", errorMessage: "Forbidden", beforeData: existingSession, afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "forbidden", errorMessage: "Forbidden", beforeData: existingSession, afterData: data, ...meta });
     return { error: "Forbidden" };
   }
 
@@ -228,10 +228,10 @@ export async function updateSession(data: UpdateSessionInput) {
     updateSessionSchema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      await insertAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "validation_error", errorMessage: error.issues[0].message, beforeData: existingSession, afterData: data, ...meta });
+      await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "validation_error", errorMessage: error.issues[0].message, beforeData: existingSession, afterData: data, ...meta });
       return { error: error.issues[0].message };
     }
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "validation_error", errorMessage: "Invalid input", beforeData: existingSession, afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "validation_error", errorMessage: "Invalid input", beforeData: existingSession, afterData: data, ...meta });
     return { error: "Invalid input" };
   }
 
@@ -262,7 +262,7 @@ export async function updateSession(data: UpdateSessionInput) {
 
         const adjustedTimeLabel = formatBrusselsReservationTime(nextAvailableStart);
 
-        await insertAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "confirmation_required", errorMessage: `Overlap detected, suggested start: ${adjustedTimeLabel}`, beforeData: existingSession, afterData: data, ...meta });
+        await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "confirmation_required", errorMessage: `Overlap detected, suggested start: ${adjustedTimeLabel}`, beforeData: existingSession, afterData: data, ...meta });
         return {
           needsConfirmation: true as const,
           adjustedStartTime: nextAvailableStart.toISOString(),
@@ -270,7 +270,7 @@ export async function updateSession(data: UpdateSessionInput) {
           message: `This time slot is taken. The next available slot starts at ${adjustedTimeLabel}. Do you want to update to this time instead?`,
         };
       } else {
-        await insertAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "validation_error", errorMessage: "No available slot after overlap", beforeData: existingSession, afterData: data, ...meta });
+        await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "validation_error", errorMessage: "No available slot after overlap", beforeData: existingSession, afterData: data, ...meta });
         return {
           error: "This time slot conflicts with another session. Please choose a different time.",
         };
@@ -278,7 +278,7 @@ export async function updateSession(data: UpdateSessionInput) {
     }
   } catch (error) {
     console.error("Failed to check session overlap:", error);
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "error", errorMessage: "Failed to validate session timing", beforeData: existingSession, afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "error", errorMessage: "Failed to validate session timing", beforeData: existingSession, afterData: data, ...meta });
     return { error: "Failed to validate session timing" };
   }
 
@@ -295,11 +295,11 @@ export async function updateSession(data: UpdateSessionInput) {
 
     revalidatePath("/dashboard");
 
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "success", beforeData: existingSession, afterData: session, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "success", beforeData: existingSession, afterData: session, ...meta });
     return { success: true, data: session };
   } catch (error) {
     console.error("Failed to update loading session:", error);
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "error", errorMessage: "Failed to update charging session", beforeData: existingSession, afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_SESSION", entityType: "session", entityId: String(data.id), status: "error", errorMessage: "Failed to update charging session", beforeData: existingSession, afterData: data, ...meta });
     return { error: "Failed to update charging session" };
   }
 }
@@ -310,7 +310,7 @@ export async function deleteSession(id: number) {
   // 1. Check authentication
   const { userId } = await auth();
   if (!userId) {
-    await insertAuditLog({ performedByUserId: null, action: "DELETE_SESSION", entityType: "session", entityId: String(id), status: "unauthorized", errorMessage: "Unauthorized", ...meta });
+    await writeInternalAuditLog({ performedByUserId: null, action: "DELETE_SESSION", entityType: "session", entityId: String(id), status: "unauthorized", errorMessage: "Unauthorized", ...meta });
     return { error: "Unauthorized" };
   }
 
@@ -320,11 +320,11 @@ export async function deleteSession(id: number) {
     getUserInfo(userId),
   ]);
   if (!existingSession) {
-    await insertAuditLog({ performedByUserId: userId, action: "DELETE_SESSION", entityType: "session", entityId: String(id), status: "not_found", errorMessage: "Session not found", ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "DELETE_SESSION", entityType: "session", entityId: String(id), status: "not_found", errorMessage: "Session not found", ...meta });
     return { error: "Session not found" };
   }
   if (existingSession.userId !== userId && (!callerInfo?.isAdmin || !callerInfo?.isActive)) {
-    await insertAuditLog({ performedByUserId: userId, action: "DELETE_SESSION", entityType: "session", entityId: String(id), status: "forbidden", errorMessage: "Forbidden", beforeData: existingSession, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "DELETE_SESSION", entityType: "session", entityId: String(id), status: "forbidden", errorMessage: "Forbidden", beforeData: existingSession, ...meta });
     return { error: "Forbidden" };
   }
 
@@ -336,11 +336,11 @@ export async function deleteSession(id: number) {
 
     revalidatePath("/dashboard");
 
-    await insertAuditLog({ performedByUserId: userId, action: "DELETE_SESSION", entityType: "session", entityId: String(id), status: "success", beforeData: existingSession, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "DELETE_SESSION", entityType: "session", entityId: String(id), status: "success", beforeData: existingSession, ...meta });
     return { success: true };
   } catch (error) {
     console.error("Failed to delete loading session:", error);
-    await insertAuditLog({ performedByUserId: userId, action: "DELETE_SESSION", entityType: "session", entityId: String(id), status: "error", errorMessage: "Failed to delete charging session", beforeData: existingSession, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "DELETE_SESSION", entityType: "session", entityId: String(id), status: "error", errorMessage: "Failed to delete charging session", beforeData: existingSession, ...meta });
     return { error: "Failed to delete charging session" };
   }
 }
@@ -350,13 +350,13 @@ export async function triggerSessionRemindersAction() {
 
   const { userId } = await auth();
   if (!userId) {
-    await insertAuditLog({ performedByUserId: null, action: "TRIGGER_SESSION_REMINDERS", entityType: "session", status: "unauthorized", errorMessage: "Unauthorized", ...meta });
+    await writeInternalAuditLog({ performedByUserId: null, action: "TRIGGER_SESSION_REMINDERS", entityType: "session", status: "unauthorized", errorMessage: "Unauthorized", ...meta });
     return { error: "Unauthorized" };
   }
 
   const callerInfo = await getUserInfo(userId);
   if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
-    await insertAuditLog({ performedByUserId: userId, action: "TRIGGER_SESSION_REMINDERS", entityType: "session", status: "forbidden", errorMessage: "Admin access required", ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "TRIGGER_SESSION_REMINDERS", entityType: "session", status: "forbidden", errorMessage: "Admin access required", ...meta });
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -365,11 +365,11 @@ export async function triggerSessionRemindersAction() {
 
     revalidatePath("/dashboard");
 
-    await insertAuditLog({ performedByUserId: userId, action: "TRIGGER_SESSION_REMINDERS", entityType: "session", status: "success", afterData: result, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "TRIGGER_SESSION_REMINDERS", entityType: "session", status: "success", afterData: result, ...meta });
     return { success: true, data: result };
   } catch (error) {
     console.error("Failed to trigger session reminders:", error);
-    await insertAuditLog({ performedByUserId: userId, action: "TRIGGER_SESSION_REMINDERS", entityType: "session", status: "error", errorMessage: "Failed to trigger session reminders", ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "TRIGGER_SESSION_REMINDERS", entityType: "session", status: "error", errorMessage: "Failed to trigger session reminders", ...meta });
     return { error: "Failed to trigger session reminders" };
   }
 }
@@ -392,14 +392,14 @@ export async function createStationAction(data: CreateStationInput) {
   // 1. Check authentication
   const { userId } = await auth();
   if (!userId) {
-    await insertAuditLog({ performedByUserId: null, action: "CREATE_STATION", entityType: "station", status: "unauthorized", errorMessage: "Unauthorized", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: null, action: "CREATE_STATION", entityType: "station", status: "unauthorized", errorMessage: "Unauthorized", afterData: data, ...meta });
     return { error: "Unauthorized" };
   }
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(userId);
   if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_STATION", entityType: "station", status: "forbidden", errorMessage: "Admin access required", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_STATION", entityType: "station", status: "forbidden", errorMessage: "Admin access required", afterData: data, ...meta });
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -408,10 +408,10 @@ export async function createStationAction(data: CreateStationInput) {
     createStationSchema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      await insertAuditLog({ performedByUserId: userId, action: "CREATE_STATION", entityType: "station", status: "validation_error", errorMessage: error.issues[0].message, afterData: data, ...meta });
+      await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_STATION", entityType: "station", status: "validation_error", errorMessage: error.issues[0].message, afterData: data, ...meta });
       return { error: error.issues[0].message };
     }
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_STATION", entityType: "station", status: "validation_error", errorMessage: "Invalid input", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_STATION", entityType: "station", status: "validation_error", errorMessage: "Invalid input", afterData: data, ...meta });
     return { error: "Invalid input" };
   }
 
@@ -424,11 +424,11 @@ export async function createStationAction(data: CreateStationInput) {
 
     revalidatePath("/dashboard");
 
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_STATION", entityType: "station", entityId: String(station.id), status: "success", afterData: station, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_STATION", entityType: "station", entityId: String(station.id), status: "success", afterData: station, ...meta });
     return { success: true, data: station };
   } catch (error) {
     console.error("Failed to create station:", error);
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_STATION", entityType: "station", status: "error", errorMessage: "Failed to create station", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_STATION", entityType: "station", status: "error", errorMessage: "Failed to create station", afterData: data, ...meta });
     return { error: "Failed to create station. Station name may already exist." };
   }
 }
@@ -451,14 +451,14 @@ export async function updateStationAction(data: UpdateStationInput) {
   // 1. Check authentication
   const { userId } = await auth();
   if (!userId) {
-    await insertAuditLog({ performedByUserId: null, action: "UPDATE_STATION", entityType: "station", entityId: String(data.id), status: "unauthorized", errorMessage: "Unauthorized", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: null, action: "UPDATE_STATION", entityType: "station", entityId: String(data.id), status: "unauthorized", errorMessage: "Unauthorized", afterData: data, ...meta });
     return { error: "Unauthorized" };
   }
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(userId);
   if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_STATION", entityType: "station", entityId: String(data.id), status: "forbidden", errorMessage: "Admin access required", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_STATION", entityType: "station", entityId: String(data.id), status: "forbidden", errorMessage: "Admin access required", afterData: data, ...meta });
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -467,10 +467,10 @@ export async function updateStationAction(data: UpdateStationInput) {
     updateStationSchema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      await insertAuditLog({ performedByUserId: userId, action: "UPDATE_STATION", entityType: "station", entityId: String(data.id), status: "validation_error", errorMessage: error.issues[0].message, afterData: data, ...meta });
+      await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_STATION", entityType: "station", entityId: String(data.id), status: "validation_error", errorMessage: error.issues[0].message, afterData: data, ...meta });
       return { error: error.issues[0].message };
     }
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_STATION", entityType: "station", entityId: String(data.id), status: "validation_error", errorMessage: "Invalid input", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_STATION", entityType: "station", entityId: String(data.id), status: "validation_error", errorMessage: "Invalid input", afterData: data, ...meta });
     return { error: "Invalid input" };
   }
 
@@ -487,11 +487,11 @@ export async function updateStationAction(data: UpdateStationInput) {
 
     revalidatePath("/dashboard");
 
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_STATION", entityType: "station", entityId: String(data.id), status: "success", beforeData: existingStation, afterData: station, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_STATION", entityType: "station", entityId: String(data.id), status: "success", beforeData: existingStation, afterData: station, ...meta });
     return { success: true, data: station };
   } catch (error) {
     console.error("Failed to update station:", error);
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_STATION", entityType: "station", entityId: String(data.id), status: "error", errorMessage: "Failed to update station", beforeData: existingStation, afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_STATION", entityType: "station", entityId: String(data.id), status: "error", errorMessage: "Failed to update station", beforeData: existingStation, afterData: data, ...meta });
     return { error: "Failed to update station. Station name may already exist." };
   }
 }
@@ -502,14 +502,14 @@ export async function deleteStationAction(id: number) {
   // 1. Check authentication
   const { userId } = await auth();
   if (!userId) {
-    await insertAuditLog({ performedByUserId: null, action: "DELETE_STATION", entityType: "station", entityId: String(id), status: "unauthorized", errorMessage: "Unauthorized", ...meta });
+    await writeInternalAuditLog({ performedByUserId: null, action: "DELETE_STATION", entityType: "station", entityId: String(id), status: "unauthorized", errorMessage: "Unauthorized", ...meta });
     return { error: "Unauthorized" };
   }
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(userId);
   if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
-    await insertAuditLog({ performedByUserId: userId, action: "DELETE_STATION", entityType: "station", entityId: String(id), status: "forbidden", errorMessage: "Admin access required", ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "DELETE_STATION", entityType: "station", entityId: String(id), status: "forbidden", errorMessage: "Admin access required", ...meta });
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -517,14 +517,14 @@ export async function deleteStationAction(id: number) {
   const existingStation = await getStationById(id);
 
   if (!existingStation) {
-    await insertAuditLog({ performedByUserId: userId, action: "DELETE_STATION", entityType: "station", entityId: String(id), status: "validation_error", errorMessage: "Station not found", ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "DELETE_STATION", entityType: "station", entityId: String(id), status: "validation_error", errorMessage: "Station not found", ...meta });
     return { error: "Station not found" };
   }
 
   try {
     const hasSessions = await checkStationHasSessions(id);
     if (hasSessions) {
-      await insertAuditLog({ performedByUserId: userId, action: "DELETE_STATION", entityType: "station", entityId: String(id), status: "validation_error", errorMessage: "Cannot delete station with existing reservations", beforeData: existingStation, ...meta });
+      await writeInternalAuditLog({ performedByUserId: userId, action: "DELETE_STATION", entityType: "station", entityId: String(id), status: "validation_error", errorMessage: "Cannot delete station with existing reservations", beforeData: existingStation, ...meta });
       return { error: "Cannot delete station with existing reservations" };
     }
 
@@ -532,11 +532,11 @@ export async function deleteStationAction(id: number) {
 
     revalidatePath("/dashboard");
 
-    await insertAuditLog({ performedByUserId: userId, action: "DELETE_STATION", entityType: "station", entityId: String(id), status: "success", beforeData: existingStation, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "DELETE_STATION", entityType: "station", entityId: String(id), status: "success", beforeData: existingStation, ...meta });
     return { success: true };
   } catch (error) {
     console.error("Failed to delete station:", error);
-    await insertAuditLog({ performedByUserId: userId, action: "DELETE_STATION", entityType: "station", entityId: String(id), status: "error", errorMessage: "Failed to delete station", beforeData: existingStation, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "DELETE_STATION", entityType: "station", entityId: String(id), status: "error", errorMessage: "Failed to delete station", beforeData: existingStation, ...meta });
     return { error: "Failed to delete station" };
   }
 }
@@ -561,14 +561,14 @@ export async function createUserAction(data: CreateUserInput) {
   // 1. Check authentication
   const { userId } = await auth();
   if (!userId) {
-    await insertAuditLog({ performedByUserId: null, action: "CREATE_USER", entityType: "user", status: "unauthorized", errorMessage: "Unauthorized", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: null, action: "CREATE_USER", entityType: "user", status: "unauthorized", errorMessage: "Unauthorized", afterData: data, ...meta });
     return { error: "Unauthorized" };
   }
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(userId);
   if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_USER", entityType: "user", status: "forbidden", errorMessage: "Admin access required", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_USER", entityType: "user", status: "forbidden", errorMessage: "Admin access required", afterData: data, ...meta });
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -577,10 +577,10 @@ export async function createUserAction(data: CreateUserInput) {
     createUserSchema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      await insertAuditLog({ performedByUserId: userId, action: "CREATE_USER", entityType: "user", status: "validation_error", errorMessage: error.issues[0].message, afterData: data, ...meta });
+      await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_USER", entityType: "user", status: "validation_error", errorMessage: error.issues[0].message, afterData: data, ...meta });
       return { error: error.issues[0].message };
     }
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_USER", entityType: "user", status: "validation_error", errorMessage: "Invalid input", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_USER", entityType: "user", status: "validation_error", errorMessage: "Invalid input", afterData: data, ...meta });
     return { error: "Invalid input" };
   }
 
@@ -595,11 +595,11 @@ export async function createUserAction(data: CreateUserInput) {
 
     revalidatePath("/dashboard");
 
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_USER", entityType: "user", entityId: user.userId, status: "success", afterData: user, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_USER", entityType: "user", entityId: user.userId, status: "success", afterData: user, ...meta });
     return { success: true, data: user };
   } catch (error) {
     console.error("Failed to create user:", error);
-    await insertAuditLog({ performedByUserId: userId, action: "CREATE_USER", entityType: "user", entityId: data.userId, status: "error", errorMessage: "Failed to create user", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "CREATE_USER", entityType: "user", entityId: data.userId, status: "error", errorMessage: "Failed to create user", afterData: data, ...meta });
     return { error: "Failed to create user. User ID or car number plate may already exist." };
   }
 }
@@ -626,14 +626,14 @@ export async function updateUserAction(data: UpdateUserInput) {
   // 1. Check authentication
   const { userId } = await auth();
   if (!userId) {
-    await insertAuditLog({ performedByUserId: null, action: "UPDATE_USER", entityType: "user", entityId: data.userId, status: "unauthorized", errorMessage: "Unauthorized", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: null, action: "UPDATE_USER", entityType: "user", entityId: data.userId, status: "unauthorized", errorMessage: "Unauthorized", afterData: data, ...meta });
     return { error: "Unauthorized" };
   }
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(userId);
   if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_USER", entityType: "user", entityId: data.userId, status: "forbidden", errorMessage: "Admin access required", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_USER", entityType: "user", entityId: data.userId, status: "forbidden", errorMessage: "Admin access required", afterData: data, ...meta });
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -642,10 +642,10 @@ export async function updateUserAction(data: UpdateUserInput) {
     updateUserSchema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      await insertAuditLog({ performedByUserId: userId, action: "UPDATE_USER", entityType: "user", entityId: data.userId, status: "validation_error", errorMessage: error.issues[0].message, afterData: data, ...meta });
+      await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_USER", entityType: "user", entityId: data.userId, status: "validation_error", errorMessage: error.issues[0].message, afterData: data, ...meta });
       return { error: error.issues[0].message };
     }
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_USER", entityType: "user", entityId: data.userId, status: "validation_error", errorMessage: "Invalid input", afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_USER", entityType: "user", entityId: data.userId, status: "validation_error", errorMessage: "Invalid input", afterData: data, ...meta });
     return { error: "Invalid input" };
   }
 
@@ -664,11 +664,11 @@ export async function updateUserAction(data: UpdateUserInput) {
 
     revalidatePath("/dashboard");
 
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_USER", entityType: "user", entityId: data.userId, status: "success", beforeData: existingUser, afterData: user, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_USER", entityType: "user", entityId: data.userId, status: "success", beforeData: existingUser, afterData: user, ...meta });
     return { success: true, data: user };
   } catch (error) {
     console.error("Failed to update user:", error);
-    await insertAuditLog({ performedByUserId: userId, action: "UPDATE_USER", entityType: "user", entityId: data.userId, status: "error", errorMessage: "Failed to update user", beforeData: existingUser, afterData: data, ...meta });
+    await writeInternalAuditLog({ performedByUserId: userId, action: "UPDATE_USER", entityType: "user", entityId: data.userId, status: "error", errorMessage: "Failed to update user", beforeData: existingUser, afterData: data, ...meta });
     return { error: "Failed to update user. Car number plate may already exist." };
   }
 }
@@ -679,14 +679,14 @@ export async function deactivateUserAction(userId: string) {
   // 1. Check authentication
   const { userId: authUserId } = await auth();
   if (!authUserId) {
-    await insertAuditLog({ performedByUserId: null, action: "DEACTIVATE_USER", entityType: "user", entityId: userId, status: "unauthorized", errorMessage: "Unauthorized", ...meta });
+    await writeInternalAuditLog({ performedByUserId: null, action: "DEACTIVATE_USER", entityType: "user", entityId: userId, status: "unauthorized", errorMessage: "Unauthorized", ...meta });
     return { error: "Unauthorized" };
   }
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(authUserId);
   if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
-    await insertAuditLog({ performedByUserId: authUserId, action: "DEACTIVATE_USER", entityType: "user", entityId: userId, status: "forbidden", errorMessage: "Admin access required", ...meta });
+    await writeInternalAuditLog({ performedByUserId: authUserId, action: "DEACTIVATE_USER", entityType: "user", entityId: userId, status: "forbidden", errorMessage: "Admin access required", ...meta });
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -699,11 +699,11 @@ export async function deactivateUserAction(userId: string) {
 
     revalidatePath("/dashboard");
 
-    await insertAuditLog({ performedByUserId: authUserId, action: "DEACTIVATE_USER", entityType: "user", entityId: userId, status: "success", beforeData: existingUser, afterData: { isActive: false }, ...meta });
+    await writeInternalAuditLog({ performedByUserId: authUserId, action: "DEACTIVATE_USER", entityType: "user", entityId: userId, status: "success", beforeData: existingUser, afterData: { isActive: false }, ...meta });
     return { success: true };
   } catch (error) {
     console.error("Failed to deactivate user:", error);
-    await insertAuditLog({ performedByUserId: authUserId, action: "DEACTIVATE_USER", entityType: "user", entityId: userId, status: "error", errorMessage: "Failed to deactivate user", beforeData: existingUser, ...meta });
+    await writeInternalAuditLog({ performedByUserId: authUserId, action: "DEACTIVATE_USER", entityType: "user", entityId: userId, status: "error", errorMessage: "Failed to deactivate user", beforeData: existingUser, ...meta });
     return { error: "Failed to deactivate user" };
   }
 }
@@ -714,14 +714,14 @@ export async function activateUserAction(userId: string) {
   // 1. Check authentication
   const { userId: authUserId } = await auth();
   if (!authUserId) {
-    await insertAuditLog({ performedByUserId: null, action: "ACTIVATE_USER", entityType: "user", entityId: userId, status: "unauthorized", errorMessage: "Unauthorized", ...meta });
+    await writeInternalAuditLog({ performedByUserId: null, action: "ACTIVATE_USER", entityType: "user", entityId: userId, status: "unauthorized", errorMessage: "Unauthorized", ...meta });
     return { error: "Unauthorized" };
   }
 
   // 2. Check admin permission
   const callerInfo = await getUserInfo(authUserId);
   if (!callerInfo?.isAdmin || !callerInfo?.isActive) {
-    await insertAuditLog({ performedByUserId: authUserId, action: "ACTIVATE_USER", entityType: "user", entityId: userId, status: "forbidden", errorMessage: "Admin access required", ...meta });
+    await writeInternalAuditLog({ performedByUserId: authUserId, action: "ACTIVATE_USER", entityType: "user", entityId: userId, status: "forbidden", errorMessage: "Admin access required", ...meta });
     return { error: "Forbidden: Admin access required" };
   }
 
@@ -734,11 +734,11 @@ export async function activateUserAction(userId: string) {
 
     revalidatePath("/dashboard");
 
-    await insertAuditLog({ performedByUserId: authUserId, action: "ACTIVATE_USER", entityType: "user", entityId: userId, status: "success", beforeData: existingUser, afterData: { isActive: true }, ...meta });
+    await writeInternalAuditLog({ performedByUserId: authUserId, action: "ACTIVATE_USER", entityType: "user", entityId: userId, status: "success", beforeData: existingUser, afterData: { isActive: true }, ...meta });
     return { success: true };
   } catch (error) {
     console.error("Failed to activate user:", error);
-    await insertAuditLog({ performedByUserId: authUserId, action: "ACTIVATE_USER", entityType: "user", entityId: userId, status: "error", errorMessage: "Failed to activate user", beforeData: existingUser, ...meta });
+    await writeInternalAuditLog({ performedByUserId: authUserId, action: "ACTIVATE_USER", entityType: "user", entityId: userId, status: "error", errorMessage: "Failed to activate user", beforeData: existingUser, ...meta });
     return { error: "Failed to activate user" };
   }
 }

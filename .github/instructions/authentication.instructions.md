@@ -41,3 +41,26 @@ When working with authentication:
 - Implement page-level protection using `auth()` and redirects (do not use middleware.ts)
 - Configure `ClerkProvider` with `signInFallbackRedirectUrl="/dashboard"` and `signUpFallbackRedirectUrl="/dashboard"` in the root layout
 - Set up proper redirect URLs in Clerk dashboard settings
+
+## Authorization Boundaries
+
+Authentication and authorization are not enforced by hiding UI elements. The browser UI is never a security boundary.
+
+- Protect sensitive reads and privileged mutations on the server side.
+- Server Components, Server Actions, and route handlers are the real authorization boundaries in this project.
+- If a page tab, button, or section is hidden from non-admin users, the corresponding server-side read or mutation must still enforce the same rule.
+
+### Audit Log Rules
+
+- Audit log reads are admin-only and must be enforced in the server-side read function itself.
+- The canonical audit-log read path uses `auth()` and then checks `requireActiveAdminUser(userId)` before querying data.
+- Audit log writes are internal server infrastructure, not admin-only user operations.
+- Unauthorized and forbidden attempts must still be written to the audit log, so the internal audit writer must not require admin privileges.
+- The internal audit writer should live in a server-only module and should not be exported from the public audit data API.
+
+### Practical Pattern
+
+- Use `auth()` to identify the current user on the server.
+- Use `requireActiveAdminUser(userId)` when the operation is restricted to active admins.
+- Keep sensitive read protection close to the read entry point.
+- Keep internal audit writing behind a server-only helper so it is less likely to be imported accidentally from unrelated modules.

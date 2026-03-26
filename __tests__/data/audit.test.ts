@@ -9,6 +9,11 @@ const { mockInsert, mockSelect } = vi.hoisted(() => ({
   mockSelect: vi.fn(),
 }));
 
+const { mockGetUserInfo, mockAuth } = vi.hoisted(() => ({
+  mockGetUserInfo: vi.fn(),
+  mockAuth: vi.fn(),
+}));
+
 function chainWith(resolveWith: unknown) {
   const c: Record<string, unknown> = {};
   ["from", "where", "values", "returning", "orderBy"].forEach((m) => {
@@ -25,24 +30,41 @@ vi.mock("@/db", () => ({
   },
 }));
 
-import { insertAuditLog, getAllAuditLogs } from "@/data/audit";
+vi.mock("@/data/usersinfo", () => ({
+  getUserInfo: mockGetUserInfo,
+}));
+
+vi.mock("@clerk/nextjs/server", () => ({
+  auth: mockAuth,
+}));
+
+import { getAllAuditLogs } from "@/data/audit";
+import { writeInternalAuditLog } from "@/lib/server/write-internal-audit-log";
 import { makeAuditLog } from "@/__tests__/helpers/factories";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetUserInfo.mockResolvedValue({
+    userId: "admin_user",
+    carNumberPlate: "ADM-001",
+    mobileNumber: "+15550000099",
+    isActive: true,
+    isAdmin: true,
+  });
+  mockAuth.mockResolvedValue({ userId: "admin_user" });
   // Suppress expected console.error output in tests
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 // -----------------------------------------------------------------------
-// insertAuditLog
+// writeInternalAuditLog
 // -----------------------------------------------------------------------
-describe("insertAuditLog", () => {
+describe("writeInternalAuditLog", () => {
   it("inserts an audit log entry successfully", async () => {
     const values = vi.fn().mockResolvedValue(undefined);
     mockInsert.mockReturnValue({ values });
 
-    await insertAuditLog({
+    await writeInternalAuditLog({
       performedByUserId: "user_abc",
       action: "CREATE_SESSION",
       entityType: "session",
@@ -64,7 +86,7 @@ describe("insertAuditLog", () => {
     const values = vi.fn().mockResolvedValue(undefined);
     mockInsert.mockReturnValue({ values });
 
-    await insertAuditLog({
+    await writeInternalAuditLog({
       performedByUserId: null,
       action: "DELETE_SESSION",
       entityType: "session",
@@ -86,7 +108,7 @@ describe("insertAuditLog", () => {
 
     // Should resolve without throwing
     await expect(
-      insertAuditLog({
+      writeInternalAuditLog({
         performedByUserId: "user_abc",
         action: "CREATE_SESSION",
         entityType: "session",
@@ -104,7 +126,7 @@ describe("insertAuditLog", () => {
     const values = vi.fn().mockResolvedValue(undefined);
     mockInsert.mockReturnValue({ values });
 
-    await insertAuditLog({
+    await writeInternalAuditLog({
       performedByUserId: "user_abc",
       action: "UPDATE_STATION",
       entityType: "station",
@@ -123,7 +145,7 @@ describe("insertAuditLog", () => {
 // getAllAuditLogs
 // -----------------------------------------------------------------------
 describe("getAllAuditLogs", () => {
-  it("returns all audit logs ordered by createdAt descending", async () => {
+  it("returns all audit logs ordered by createdAt descending for an active admin", async () => {
     const logs = [
       makeAuditLog({ id: 2, createdAt: new Date("2026-03-18T11:00:00Z") }),
       makeAuditLog({ id: 1, createdAt: new Date("2026-03-18T10:00:00Z") }),
@@ -133,5 +155,26 @@ describe("getAllAuditLogs", () => {
     const result = await getAllAuditLogs();
     expect(result).toEqual(logs);
     expect(mockSelect).toHaveBeenCalled();
+  });
+
+  it("rejects when the reader is not an active admin", async () => {
+    mockAuth.mockResolvedValue({ userId: "regular_user" });
+    mockGetUserInfo.mockResolvedValue({
+      userId: "regular_user",
+      carNumberPlate: "REG-001",
+      mobileNumber: "+15550000098",
+      isActive: true,
+      isAdmin: false,
+    });
+
+    await expect(getAllAuditLogs()).rejects.toThrow(
+      "Forbidden: Admin access required"
+    );
+  });
+
+  it("rejects when no user is authenticated", async () => {
+    mockAuth.mockResolvedValue({ userId: null });
+
+    await expect(getAllAuditLogs()).rejects.toThrow("Unauthorized");
   });
 });

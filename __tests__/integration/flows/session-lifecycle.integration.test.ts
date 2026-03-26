@@ -103,6 +103,7 @@ describe("session lifecycle flow", () => {
     expect(sessionResult).toMatchObject({ success: true });
 
     // Verify audit trail contains all three events
+    mockUserId.value = ADMIN_ID;
     const logs = await getAllAuditLogs();
     const actions = logs.map((l) => l.action);
 
@@ -129,6 +130,7 @@ describe("session lifecycle flow", () => {
     });
     const session = (sessionResult as { success: true; data: { id: number } }).data;
 
+    mockUserId.value = ADMIN_ID;
     const logs = await getAllAuditLogs();
 
     const stationLog = logs.find(
@@ -200,6 +202,7 @@ describe("user deactivation and reactivation flow", () => {
     mockUserId.value = ADMIN_ID;
     await activateUserAction("audit_flow_user");
 
+    mockUserId.value = ADMIN_ID;
     const logs = await getAllAuditLogs();
     const actions = logs.map((l) => `${l.action}:${l.status}`);
 

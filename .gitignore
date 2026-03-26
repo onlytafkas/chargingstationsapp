@@ -45,3 +45,7 @@ next-env.d.ts
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# e2e test results
+.copilot-e2e*.log
+.copilot-e2e-current.txt

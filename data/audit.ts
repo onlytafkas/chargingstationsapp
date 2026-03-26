@@ -1,5 +1,7 @@
+import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { auditLogs } from "@/db/schema";
+import { requireActiveAdminUser } from "@/lib/require-active-admin";
 import { desc } from "drizzle-orm";
 
 export type AuditStatus =
@@ -26,7 +28,7 @@ export type AuditAction =
 
 export type AuditEntityType = "session" | "station" | "user";
 
-interface InsertAuditLogInput {
+export interface WriteInternalAuditLogInput {
   performedByUserId: string | null;
   action: AuditAction;
   entityType: AuditEntityType;
@@ -39,31 +41,15 @@ interface InsertAuditLogInput {
   userAgent?: string | null;
 }
 
-export async function insertAuditLog(entry: InsertAuditLogInput): Promise<void> {
-  try {
-    await db.insert(auditLogs).values({
-      performedByUserId: entry.performedByUserId,
-      action: entry.action,
-      entityType: entry.entityType,
-      entityId: entry.entityId ?? null,
-      status: entry.status,
-      errorMessage: entry.errorMessage ?? null,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      beforeData: (entry.beforeData ?? null) as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      afterData: (entry.afterData ?? null) as any,
-      ipAddress: entry.ipAddress ?? null,
-      userAgent: entry.userAgent ?? null,
-    });
-  } catch (err) {
-    // Audit failures must never break the calling action
-    console.error("[audit] Failed to insert audit log:", err);
-  }
-}
-
-export async function getAllAuditLogs() {
+async function readAllAuditLogs() {
   return db
     .select()
     .from(auditLogs)
     .orderBy(desc(auditLogs.createdAt));
+}
+
+export async function getAllAuditLogs() {
+  const { userId } = await auth();
+  await requireActiveAdminUser(userId);
+  return readAllAuditLogs();
 }

@@ -6,15 +6,37 @@
  */
 import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 
+const { mockUserId } = vi.hoisted(() => ({
+  mockUserId: { value: "audit_admin" as string | null },
+}));
+
 vi.mock("@/db", async () => await import("@/__tests__/integration/helpers/test-db"));
 
+vi.mock("@clerk/nextjs/server", () => ({
+  auth: vi.fn(async () => ({ userId: mockUserId.value })),
+}));
+
 import { mem, emptyBackup } from "@/__tests__/integration/helpers/test-db";
-import { insertAuditLog, getAllAuditLogs } from "@/data/audit";
+import { createUser, updateUser } from "@/data/usersinfo";
+import { getAllAuditLogs } from "@/data/audit";
+import { writeInternalAuditLog } from "@/lib/server/write-internal-audit-log";
+
+const ADMIN_ID = "audit_admin";
+const REGULAR_USER_ID = "audit_regular";
 
 let backup: ReturnType<typeof mem.backup>;
 
-beforeAll(() => {
+beforeAll(async () => {
   emptyBackup.restore();
+  await createUser({ userId: ADMIN_ID, carNumberPlate: "AUD-ADM-001", mobileNumber: "+15550000030" });
+  await updateUser({
+    userId: ADMIN_ID,
+    carNumberPlate: "AUD-ADM-001",
+    mobileNumber: "+15550000030",
+    isActive: true,
+    isAdmin: true,
+  });
+  await createUser({ userId: REGULAR_USER_ID, carNumberPlate: "AUD-REG-001", mobileNumber: "+15550000031" });
   backup = mem.backup();
 });
 
@@ -24,13 +46,14 @@ afterAll(() => {
 
 beforeEach(() => {
   backup.restore();
+  mockUserId.value = ADMIN_ID;
 });
 
-// ── insertAuditLog ────────────────────────────────────────────────────────────
+// ── writeInternalAuditLog ────────────────────────────────────────────────────
 
-describe("insertAuditLog", () => {
+describe("writeInternalAuditLog", () => {
   it("persists all required fields to the database", async () => {
-    await insertAuditLog({
+    await writeInternalAuditLog({
       performedByUserId: "user_audit1",
       action: "CREATE_STATION",
       entityType: "station",
@@ -50,7 +73,7 @@ describe("insertAuditLog", () => {
   });
 
   it("stores optional fields as null when not provided", async () => {
-    await insertAuditLog({
+    await writeInternalAuditLog({
       performedByUserId: null,
       action: "CREATE_SESSION",
       entityType: "session",
@@ -69,7 +92,7 @@ describe("insertAuditLog", () => {
   });
 
   it("stores errorMessage, ipAddress, and userAgent when provided", async () => {
-    await insertAuditLog({
+    await writeInternalAuditLog({
       performedByUserId: "user_audit2",
       action: "DELETE_SESSION",
       entityType: "session",
@@ -90,7 +113,7 @@ describe("insertAuditLog", () => {
     const before = { name: "Old Station" };
     const after = { name: "New Station" };
 
-    await insertAuditLog({
+    await writeInternalAuditLog({
       performedByUserId: "user_audit3",
       action: "UPDATE_STATION",
       entityType: "station",
@@ -112,7 +135,7 @@ describe("insertAuditLog", () => {
     // We do this by inserting a valid log (no way to force failure without re-mocking here),
     // and then verifying the function resolves without throwing.
     await expect(
-      insertAuditLog({
+      writeInternalAuditLog({
         performedByUserId: null,
         action: "CREATE_USER",
         entityType: "user",
@@ -126,18 +149,18 @@ describe("insertAuditLog", () => {
 // ── getAllAuditLogs ────────────────────────────────────────────────────────────
 
 describe("getAllAuditLogs", () => {
-  it("returns an empty array when no logs exist", async () => {
+  it("returns an empty array when no logs exist for an active admin", async () => {
     expect(await getAllAuditLogs()).toEqual([]);
   });
 
   it("returns logs ordered by createdAt descending (newest first)", async () => {
-    await insertAuditLog({
+    await writeInternalAuditLog({
       performedByUserId: "u1",
       action: "CREATE_SESSION",
       entityType: "session",
       status: "success",
     });
-    await insertAuditLog({
+    await writeInternalAuditLog({
       performedByUserId: "u2",
       action: "DELETE_SESSION",
       entityType: "session",
@@ -153,19 +176,19 @@ describe("getAllAuditLogs", () => {
   });
 
   it("returns multiple logs when several are inserted", async () => {
-    await insertAuditLog({
+    await writeInternalAuditLog({
       performedByUserId: "u1",
       action: "CREATE_STATION",
       entityType: "station",
       status: "success",
     });
-    await insertAuditLog({
+    await writeInternalAuditLog({
       performedByUserId: "u1",
       action: "UPDATE_STATION",
       entityType: "station",
       status: "success",
     });
-    await insertAuditLog({
+    await writeInternalAuditLog({
       performedByUserId: "u1",
       action: "DELETE_STATION",
       entityType: "station",
@@ -173,5 +196,13 @@ describe("getAllAuditLogs", () => {
     });
 
     expect(await getAllAuditLogs()).toHaveLength(3);
+  });
+
+  it("rejects a reader who is not an active admin", async () => {
+    mockUserId.value = REGULAR_USER_ID;
+
+    await expect(getAllAuditLogs()).rejects.toThrow(
+      "Forbidden: Admin access required"
+    );
   });
 });

@@ -98,8 +98,8 @@ vi.mock("@/data/usersinfo", () => ({
   checkUserHasSessions: vi.fn(),
 }));
 
-vi.mock("@/data/audit", () => ({
-  insertAuditLog: vi.fn().mockResolvedValue(undefined),
+vi.mock("@/lib/server/write-internal-audit-log", () => ({
+  writeInternalAuditLog: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/data/session-reminders", () => ({

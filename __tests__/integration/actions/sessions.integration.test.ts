@@ -36,7 +36,7 @@ vi.mock("@/lib/session-sms", () => ({
 
 import { mem, emptyBackup } from "@/__tests__/integration/helpers/test-db";
 import { createSession, updateSession, deleteSession } from "@/app/dashboard/actions";
-import { createUser } from "@/data/usersinfo";
+import { createUser, updateUser } from "@/data/usersinfo";
 import { createStation } from "@/data/stations";
 import { createLoadingSession, getSessionById } from "@/data/loading-sessions";
 import { getAllAuditLogs } from "@/data/audit";
@@ -79,6 +79,13 @@ function formatReservationDateTime(value: Date | string) {
 beforeAll(async () => {
   emptyBackup.restore();
   await createUser({ userId: USER_ID, carNumberPlate: "SS-001", mobileNumber: "+15550000001" });
+  await updateUser({
+    userId: USER_ID,
+    carNumberPlate: "SS-001",
+    mobileNumber: "+15550000001",
+    isActive: true,
+    isAdmin: true,
+  });
   const station = await createStation({ name: "Session Action Station" });
   stationId = station.id;
   backup = mem.backup();
@@ -247,6 +254,7 @@ describe("createSession", () => {
       endTime: isoToday(11),
     });
 
+    mockUserId.value = USER_ID;
     const logs = await getAllAuditLogs();
     const log = logs.find(
       (l) => l.action === "CREATE_SESSION" && l.status === "unauthorized"
