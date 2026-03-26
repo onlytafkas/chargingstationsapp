@@ -69,6 +69,10 @@ npm run version:major
 
 ## Release Notes
 
+### v1.5.0
+
+- Added server-side active-admin authorization for audit-log reads and moved internal audit writing behind a server-only helper to reduce accidental misuse.
+
 ### v1.4.2
 
 - Fixed the Stations tab so each station card shows only today's reservation count.

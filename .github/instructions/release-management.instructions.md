@@ -40,3 +40,13 @@ If a change does not affect released behaviour, explain why no version bump is n
 - Verify the version string remains valid SemVer 2.0.0.
 - Ensure the visible version label and release notes stay in sync with `package.json`.
 - For breaking changes, state clearly that the change requires a major-version bump.
+
+## Mandatory Release Checkpoint
+
+Before finishing any task that changes code, behavior, product capabilities, security boundaries, or visible documentation about shipped behavior:
+
+- Make an explicit SemVer decision: `PATCH`, `MINOR`, `MAJOR`, or `no version bump`.
+- If the decision is `no version bump`, state the reason explicitly in the final response.
+- If the decision is `PATCH`, `MINOR`, or `MAJOR`, update `package.json` before finishing.
+- Keep `README.md` release notes aligned with the chosen version whenever the change is release-facing.
+- Do not assume security or authorization changes are internal-only; if they change the shipped product behavior or enforcement contract, treat them as release-facing unless there is a clear reason not to.

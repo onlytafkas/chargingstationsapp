@@ -31,6 +31,7 @@ This project is a charging station management application built with Next.js, Ty
 10. **🔢 Semantic Versioning Is Required**: Apply Semantic Versioning 2.0.0 to any change that affects the product surface. Use `PATCH` for backward-compatible fixes, `MINOR` for backward-compatible features, and `MAJOR` for breaking changes. Keep `package.json`, UI version display, and release notes aligned.
 11. **🧹 E2E Branch Cleanup Is Required**: Any workflow that creates temporary Neon branches for Playwright or other E2E validation MUST delete them when finished and prune stale `e2e/*` branches before retrying if branch limits are reached.
 12. **📝 Capture Reusable Lessons**: When a fix reveals a reusable testing or workflow rule, add that lesson to the relevant instruction file so future changes inherit it instead of relearning it.
+13. **🚨 Release Decision Is Mandatory**: Before finishing any release-facing task, explicitly decide whether the change requires `PATCH`, `MINOR`, `MAJOR`, or `no version bump`. If a bump is required, update `package.json` and `README.md` release notes before finishing. If no bump is required, state the reason explicitly. Do not treat security-boundary changes as automatically internal-only.
 
 ## Workflow for Code Generation
 
@@ -40,3 +41,4 @@ This project is a charging station management application built with Next.js, Ty
 4. **IMPLEMENT**: Generate code that matches the patterns and rules
 5. **TEST**: Write **meaningful** unit tests AND integration tests for every changed data function, server action, and component. Add meaningful Playwright E2E tests for every new or changed user-visible flow. Cover every new branch: happy path, error/catch paths, null/edge cases, and real browser journeys where applicable. Add new test files when coverage or scenario gaps are found, and if an existing test file would need edits, stop and report that instead of changing it automatically.
 6. **VALIDATE**: Ask once whether the user wants to waive validation suite execution for the task. Without that waiver, run `npm run test`, `npm run test:integration`, `npm run test:coverage`, and `npm run test:e2e` after every change, ensure all business logic files stay at or above 80% for each metric, and clean up any temporary Neon E2E branches afterward.
+7. **RELEASE CHECKPOINT**: Before the final response for any release-facing task, explicitly confirm the SemVer decision and verify that `package.json`, visible version display, and `README.md` release notes are aligned.

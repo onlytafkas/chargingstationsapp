@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import packageJson from "@/package.json";
 import {
   APP_NAME,
   appNameWithVersion,
@@ -29,8 +30,10 @@ describe("version", () => {
   });
 
   it("exports the validated package version and display labels", () => {
-    expect(appVersion).toBe("1.4.2");
-    expect(appVersionLabel).toBe("v1.4.2");
-    expect(appNameWithVersion).toBe(`${APP_NAME} v1.4.2`);
+    const expectedVersion = packageJson.version;
+
+    expect(appVersion).toBe(expectedVersion);
+    expect(appVersionLabel).toBe(`v${expectedVersion}`);
+    expect(appNameWithVersion).toBe(`${APP_NAME} v${expectedVersion}`);
   });
 });
